@@ -94,12 +94,32 @@ enum DaemonClient {
         return obj
     }
 
+    /// Per-call socket read/write deadline. A switch can hold the daemon's config
+    /// lock across a ~3s `/usr/bin/security` Keychain rewrite; without a timeout a
+    /// tile tap would block the caller for that whole window (and unboundedly if an
+    /// "Always Allow" ACL prompt stalls). 2s bounds it (TECH-10 #25).
+    private static let ioTimeout = timeval(tv_sec: 2, tv_usec: 0)
+    /// Cap on a single reply so a misbehaving peer can't grow the buffer without
+    /// limit; the daemon's replies are tens of bytes.
+    private static let maxReplyBytes = 1 << 20
+
     /// Connect to the unix socket, write one line, read the reply. Returns nil on
-    /// any failure (no socket, connect refused, short read) so callers can fall back.
+    /// any failure (no socket, connect refused, timeout, short/empty read) so
+    /// callers can fall back. MUST be called off the main actor (see `StatusModel`):
+    /// the connect/write/read are blocking, and this is the beach-ball source #25.
     private static func sendRaw(_ payload: Data) -> Data? {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
+
+        // Never let a write to a peer-closed fd raise SIGPIPE (fatal on macOS with
+        // no handler) — surface it as an EPIPE return we already treat as failure.
+        var noSigpipe: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, socklen_t(MemoryLayout<Int32>.size))
+        // Bound every blocking read/write so a stuck daemon can't wedge the caller.
+        var tv = ioTimeout
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
@@ -118,13 +138,30 @@ enum DaemonClient {
 
         var line = payload
         line.append(0x0A) // newline-delimited
-        let wrote = line.withUnsafeBytes { write(fd, $0.baseAddress, line.count) }
-        guard wrote > 0 else { return nil }
+        // Loop until the whole payload is written — a single write() may be partial.
+        let wroteAll = line.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Bool in
+            guard let base = raw.baseAddress else { return false }
+            var sent = 0
+            while sent < line.count {
+                let n = write(fd, base + sent, line.count - sent)
+                if n <= 0 { return false } // EPIPE / timeout / error
+                sent += n
+            }
+            return true
+        }
+        guard wroteAll else { return nil }
 
-        var buffer = [UInt8](repeating: 0, count: 65536)
-        let n = read(fd, &buffer, buffer.count)
-        guard n > 0 else { return nil }
-        return Data(buffer[0..<n])
+        // Read until the newline terminator or EOF — one read() may not carry the
+        // whole reply. Bounded by maxReplyBytes and the recv timeout.
+        var response = Data()
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while response.count < maxReplyBytes {
+            let n = read(fd, &chunk, chunk.count)
+            guard n > 0 else { break } // EOF, timeout, or error
+            response.append(contentsOf: chunk[0..<n])
+            if chunk[0..<n].contains(0x0A) { break } // reply is one line
+        }
+        return response.isEmpty ? nil : response
     }
 
     // MARK: - Shell fallback

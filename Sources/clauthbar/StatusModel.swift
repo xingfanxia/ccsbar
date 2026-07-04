@@ -34,13 +34,25 @@ final class StatusModel: ObservableObject {
 
     // MARK: - Commands (fire, then re-read once the daemon lands it)
 
-    func switchTo(_ name: String) { DaemonClient.switchTo(name); settle() }
-    func fallbackAdd(_ name: String) { DaemonClient.fallbackAdd(name); settle() }
-    func fallbackRemove(_ name: String) { DaemonClient.fallbackRemove(name); settle() }
-    func fallbackMove(_ name: String, up: Bool) { DaemonClient.fallbackMove(name, up: up); settle() }
-    func setThreshold(_ name: String, _ value: Int) { DaemonClient.setThreshold(name, value); settle() }
-    func setWrapOff(_ on: Bool) { DaemonClient.setWrapOff(on); settle() }
-    func refresh() { DaemonClient.refresh(nil); settle() }
+    func switchTo(_ name: String) { dispatch { DaemonClient.switchTo(name) } }
+    func fallbackAdd(_ name: String) { dispatch { DaemonClient.fallbackAdd(name) } }
+    func fallbackRemove(_ name: String) { dispatch { DaemonClient.fallbackRemove(name) } }
+    func fallbackMove(_ name: String, up: Bool) { dispatch { DaemonClient.fallbackMove(name, up: up) } }
+    func setThreshold(_ name: String, _ value: Int) { dispatch { DaemonClient.setThreshold(name, value) } }
+    func setWrapOff(_ on: Bool) { dispatch { DaemonClient.setWrapOff(on) } }
+    func refresh() { dispatch { DaemonClient.refresh(nil) } }
+
+    /// Run a daemon command's blocking socket I/O OFF the main actor (TECH-10 #25 —
+    /// a switch can park the socket for ~2s while the daemon holds its config lock
+    /// across a Keychain rewrite; doing that on @MainActor is the beach-ball), then
+    /// hop back to settle the UI. The command closures are fire-and-forget, so the
+    /// call sites stay synchronous.
+    private func dispatch(_ work: @escaping @Sendable () -> Void) {
+        Task { [weak self] in
+            await Task.detached(operation: work).value
+            self?.settle()
+        }
+    }
 
     /// The daemon applies queued edits on its next ~1s tick; re-read shortly after
     /// so the panel updates without waiting for the 4s poll.
