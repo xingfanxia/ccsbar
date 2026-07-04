@@ -27,11 +27,18 @@ owns no credentials and runs no network of its own.
 swift run          # launches as a menu-bar accessory (no Dock icon)
 ```
 
-A gauge glyph appears in the menu bar showing the active account's 5h %. The
-dropdown lists every account — active pinned on top with an orange dot — each
-with its plan tier, a 5h usage bar, and (for fallback-chain members) an
-`⚡ #position @threshold` armed hint. Click an account to switch; "Refresh now"
-forces a re-fetch; "Quit" exits.
+The menu-bar title shows the **active account name + 5h %** (so the active
+account is unmistakable at a glance). The dropdown lists every account — active
+pinned on top with an orange dot — each with its plan tier, **5h / 7d / fable
+usage bars** (with % and a "resets in" hint), and its fallback status
+(`⚡ chain #position · threshold%` + armed). Below that: a **Fallback chain**
+summary (order + wrap-off state) and a **Configure ▸** submenu to edit the chain
+without leaving the bar — per-account threshold picker, move up/down, add/remove,
+and a wrap-off toggle. Click an account to switch; "Refresh now" forces a
+re-fetch; "Quit" exits.
+
+Configuration drives the daemon's control socket (`clauthd.sock`), so a running
+`clauth daemon` is required to edit (display works off `status.json` alone).
 
 ## Build a real app
 
@@ -43,23 +50,28 @@ cp -R build/clauthbar.app /Applications/   # then add to System Settings → Log
 
 ## Status (MVP)
 
-Implemented (Phase S1–S3, S5–S6 of `clauth/docs/clauthbar/DESIGN.md`):
+Implemented:
 
 - `NSStatusItem` + `NSMenu`, rebuilt from `status.json` on open.
-- Per-account rows: active dot, tier badge, 5h bar + %, fallback/armed hint,
-  staleness cue — colored from clauth's TUI palette (Catppuccin Mocha).
+- Menu-bar title: active account **name + 5h %** (color-tinted by utilization).
+- Per-account rows: active dot, tier badge, **5h / 7d / fable bars + % + reset
+  hint**, fallback line (`⚡ chain #pos · threshold%` + armed), staleness cue —
+  colored from clauth's TUI palette (Catppuccin Mocha).
+- **Fallback chain summary** (order + wrap-off state).
+- **Configure ▸** submenu — per-account threshold picker, move up/down, add/remove,
+  and a wrap-off toggle, driving the daemon's config socket commands.
 - One-click switch (socket, `clauth <name>` fallback) + Refresh + Quit.
-- Runs as an accessory app (no Dock icon).
+- Runs as an accessory app (no Dock icon); packaged as an ad-hoc-signed `.app`.
 
 Deferred:
 
 - **S4** — the polished hosted-SwiftUI card (real `Canvas` usage bars via
-  `NSHostingView` + `intrinsicContentSize`). The MVP draws bars with block
+  `NSHostingView` + `intrinsicContentSize`). The rows draw bars with block
   characters in native menu items instead.
 - **S7 (partial)** — `.app` bundling done (`Scripts/package_app.sh`, ad-hoc
-  signed). Still deferred: Settings window, Sparkle auto-update, Developer-ID
-  signing + notarization, Homebrew cask.
-- 7d / per-model windows, `Add Account…` (→ `clauth login`), custom meter glyph.
+  signed). Still deferred: dedicated Settings window, Sparkle auto-update,
+  Developer-ID signing + notarization, Homebrew cask.
+- `Add Account…` (→ `clauth login`), custom meter glyph.
 
 ## Architecture
 

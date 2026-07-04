@@ -49,6 +49,38 @@ enum DaemonClient {
         _ = sendCommand(cmd)
     }
 
+    // MARK: - Fallback configuration (socket only — needs a running daemon)
+
+    /// Append a profile to the fallback chain.
+    @discardableResult
+    static func fallbackAdd(_ profile: String) -> Bool {
+        sendCommand(["cmd": "fallback_add", "profile": profile]) != nil
+    }
+
+    /// Remove a profile from the fallback chain.
+    @discardableResult
+    static func fallbackRemove(_ profile: String) -> Bool {
+        sendCommand(["cmd": "fallback_remove", "profile": profile]) != nil
+    }
+
+    /// Move a chain member one slot up (`up: true`) or down.
+    @discardableResult
+    static func fallbackMove(_ profile: String, up: Bool) -> Bool {
+        sendCommand(["cmd": "fallback_move", "profile": profile, "dir": up ? "up" : "down"]) != nil
+    }
+
+    /// Set a profile's 5h auto-switch threshold (0…100).
+    @discardableResult
+    static func setThreshold(_ profile: String, _ value: Int) -> Bool {
+        sendCommand(["cmd": "set_threshold", "profile": profile, "value": value]) != nil
+    }
+
+    /// Toggle wrap-off mode (switch every account off once the chain is spent).
+    @discardableResult
+    static func setWrapOff(_ on: Bool) -> Bool {
+        sendCommand(["cmd": "set_wrap_off", "value": on]) != nil
+    }
+
     // MARK: - Socket
 
     /// Send one newline-delimited JSON command and parse the reply object.

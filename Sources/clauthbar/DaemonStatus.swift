@@ -8,6 +8,8 @@ struct DaemonStatus: Codable, Sendable {
     let activeProfile: String?
     let wrapOff: Bool
     let refreshIntervalMs: Int
+    /// Ordered fallback-chain member names (the auto-switch order).
+    let fallbackChain: [String]
     let profiles: [ProfileStatus]
 
     enum CodingKeys: String, CodingKey {
@@ -16,7 +18,21 @@ struct DaemonStatus: Codable, Sendable {
         case activeProfile = "active_profile"
         case wrapOff = "wrap_off"
         case refreshIntervalMs = "refresh_interval_ms"
+        case fallbackChain = "fallback_chain"
         case profiles
+    }
+
+    /// Decode `fallback_chain` leniently — treat a missing field as empty so an
+    /// older daemon's status.json still decodes.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schema = try c.decode(Int.self, forKey: .schema)
+        generatedAt = try c.decode(String.self, forKey: .generatedAt)
+        activeProfile = try c.decodeIfPresent(String.self, forKey: .activeProfile)
+        wrapOff = try c.decode(Bool.self, forKey: .wrapOff)
+        refreshIntervalMs = try c.decode(Int.self, forKey: .refreshIntervalMs)
+        fallbackChain = try c.decodeIfPresent([String].self, forKey: .fallbackChain) ?? []
+        profiles = try c.decode([ProfileStatus].self, forKey: .profiles)
     }
 }
 
@@ -49,9 +65,27 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         case thirdParty = "third_party"
     }
 
+    /// The window with the given label (`"5h"`, `"7d"`, `"7d fable"`), or nil.
+    func window(_ label: String) -> UsageWindow? { windows.first { $0.label == label } }
+
     /// The 5-hour window — the one that actually throttles a session.
-    var fiveHour: UsageWindow? { windows.first { $0.label == "5h" } }
+    var fiveHour: UsageWindow? { window("5h") }
     var fiveHourPct: Double { fiveHour?.utilizationPct ?? 0 }
+
+    /// The 7-day rolling window (weekly limit). `"7d"` is a clauth compile-time
+    /// constant, so an exact match is safe.
+    var sevenDay: UsageWindow? { window("7d") }
+
+    /// The 7-day Fable-model window (fable weekly limit). Matched leniently: clauth
+    /// derives this label from the server's model display name
+    /// (`"7d " + display_name.lowercased()`), so it can be `"7d fable"`,
+    /// `"7d fable 5"`, etc. Key on the `"7d …fable…"` shape, not an exact string.
+    var fableWeek: UsageWindow? {
+        windows.first { $0.label.hasPrefix("7d ") && $0.label.lowercased().contains("fable") }
+    }
+
+    /// Is this profile a member of the fallback chain?
+    var inChain: Bool { fallback != nil }
 
     /// Freshness cue: numbers are trustworthy only on a live ("Fresh") read.
     var isStale: Bool { fetchStatus != nil && fetchStatus != "Fresh" }

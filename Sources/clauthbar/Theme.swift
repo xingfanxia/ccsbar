@@ -29,6 +29,22 @@ enum Theme {
         return success
     }
 
+    /// Compact "resets in" hint from an ISO-8601 timestamp — `resets 3h`,
+    /// `resets 12m`, or nil when absent or already past. Kept short for a menu row.
+    /// The formatter is built per call (cheap; a menu opens rarely) to avoid a
+    /// non-`Sendable` shared static under Swift 6 strict concurrency.
+    static func resetHint(_ iso: String?) -> String? {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime]
+        guard let iso, let date = parser.date(from: iso) else { return nil }
+        let secs = Int(date.timeIntervalSinceNow)
+        guard secs > 0 else { return nil }
+        let h = secs / 3600
+        let m = (secs % 3600) / 60
+        if h > 0 { return m > 0 ? "resets \(h)h\(m)m" : "resets \(h)h" }
+        return "resets \(m)m"
+    }
+
     /// A fixed-width text usage bar, e.g. `████████░░░░░░░░`, colored by `color`.
     /// `cells` block characters; fill = round(pct/100 * cells).
     static func bar(pct: Double, cells: Int = 14, color: NSColor) -> NSAttributedString {
