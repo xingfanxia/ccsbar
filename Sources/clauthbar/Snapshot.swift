@@ -53,13 +53,37 @@ enum Snapshot {
     }
     """
 
+    /// Back-compat: `--snapshot <path>` renders the healthy panel.
     @MainActor
-    static func render(to path: String) {
+    static func render(to path: String) { render(variant: "healthy", to: path) }
+
+    /// Render a specific liveness variant (TECH-4 harness): `healthy` (live panel),
+    /// `stale` (stalled banner over content), `schema2` (clauthbar-out-of-date
+    /// state). Prints the RESOLVED liveness to stderr so the state logic is
+    /// verifiable without eyeballing the PNG (`--snapshot=stale` → daemonStalled=true).
+    @MainActor
+    static func render(variant: String, to path: String) {
         guard let mock = try? JSONDecoder().decode(DaemonStatus.self, from: Data(mockJSON.utf8)) else {
             FileHandle.standardError.write(Data("snapshot: failed to decode mock\n".utf8))
             return
         }
-        let model = StatusModel(preview: mock)
+        let (status, liveness): (DaemonStatus?, StatusModel.Liveness) = {
+            switch variant {
+            case "stale": return (mock, .stalled(since: "05:00"))
+            case "schema2": return (nil, .outOfDate(schema: 2))
+            default: return (mock, .ok)
+            }
+        }()
+        let resolved: String
+        switch liveness {
+        case .ok: resolved = "ok"
+        case .stalled(let s): resolved = "stalled(since: \(s)); daemonStalled=true"
+        case .outOfDate(let n): resolved = "outOfDate(schema: \(n))"
+        case .down: resolved = "down"
+        }
+        FileHandle.standardError.write(Data("snapshot[\(variant)]: liveness=\(resolved)\n".utf8))
+
+        let model = StatusModel(preview: status, liveness: liveness)
         model.showConfig = true // render with the config section open
         let view = PanelView(model: model)
             .background(Color(nsColor: .windowBackgroundColor))

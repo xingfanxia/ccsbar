@@ -10,14 +10,57 @@ struct PanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let status = model.status {
-                content(status)
-            } else {
+            switch model.liveness {
+            case .down:
                 emptyState
+            case .outOfDate(let schema):
+                outOfDateState(schema)
+            case .ok:
+                if let status = model.status { content(status) } else { emptyState }
+            case .stalled(let since):
+                if let status = model.status {
+                    stalledBanner(since)
+                    content(status)
+                } else {
+                    emptyState
+                }
             }
         }
         .frame(width: 320)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - Liveness banners (TECH-4)
+
+    /// The daemon wrote this file then died: the numbers below are frozen, not
+    /// live. A loud banner over the (last-known) content so a stale % never reads
+    /// as current.
+    private func stalledBanner(_ since: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.danger)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Daemon stalled — data from \(since)").font(.caption).fontWeight(.semibold)
+                Text("Restart with `clauth daemon`").font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Theme.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.bottom, 6)
+    }
+
+    /// The daemon's status.json is a schema this clauthbar doesn't understand —
+    /// update clauthbar, don't debug launchd. Distinct from the daemon-down state.
+    private func outOfDateState(_ schema: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("clauthbar out of date", systemImage: "arrow.up.circle")
+                .font(.subheadline).foregroundStyle(Theme.warning)
+            Text("The daemon writes status.json schema \(schema); this clauthbar reads \(supportedSchema). Update clauthbar.")
+                .font(.caption).foregroundStyle(.secondary)
+            Divider().padding(.vertical, 6)
+            ActionRow(icon: "power", title: "Quit clauthbar") { NSApp.terminate(nil) }
+        }
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Populated panel

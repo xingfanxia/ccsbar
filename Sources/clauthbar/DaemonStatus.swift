@@ -1,5 +1,18 @@
 import Foundation
 
+/// The single field we must read BEFORE a full decode: a schema-2 status.json
+/// would fail the `DaemonStatus` decode below, and without this probe that failure
+/// is indistinguishable from "no daemon" — sending the operator to debug launchd
+/// instead of updating clauthbar (TECH-4 schema gate, #8/#29/#40).
+struct SchemaProbe: Decodable, Sendable {
+    let schema: Int
+}
+
+/// The `status.json` schema this clauthbar build understands. A newer daemon
+/// bumps the on-disk `schema`; the gate turns that into an explicit
+/// "clauthbar out of date" state instead of a silent blank panel.
+let supportedSchema = 1
+
 /// Mirror of `~/.clauth/status.json` (schema 1), written by `clauth daemon`.
 /// See clauth's `src/daemon/status_json.rs` for the authoritative shape.
 struct DaemonStatus: Codable, Sendable {
@@ -63,6 +76,27 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         case autoStart = "auto_start"
         case bellThreshold = "bell_threshold"
         case thirdParty = "third_party"
+    }
+
+    /// Lenient decode (TECH-4): only `name` + `active` are load-bearing; every
+    /// other field falls back to a benign default so a missing/renamed non-critical
+    /// field in an additive-era status.json can't throw and blank the whole panel.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        active = try c.decodeIfPresent(Bool.self, forKey: .active) ?? false
+        provider = try c.decodeIfPresent(String.self, forKey: .provider) ?? "anthropic"
+        baseUrl = try c.decodeIfPresent(String.self, forKey: .baseUrl)
+        tier = try c.decodeIfPresent(String.self, forKey: .tier)
+        hasLiveSession = try c.decodeIfPresent(Bool.self, forKey: .hasLiveSession) ?? false
+        fetchStatus = try c.decodeIfPresent(String.self, forKey: .fetchStatus)
+        fetchedAt = try c.decodeIfPresent(String.self, forKey: .fetchedAt)
+        nextRefreshAt = try c.decodeIfPresent(String.self, forKey: .nextRefreshAt)
+        autoStart = try c.decodeIfPresent(Bool.self, forKey: .autoStart) ?? false
+        bellThreshold = try c.decodeIfPresent(Double.self, forKey: .bellThreshold)
+        fallback = try c.decodeIfPresent(FallbackInfo.self, forKey: .fallback)
+        windows = try c.decodeIfPresent([UsageWindow].self, forKey: .windows) ?? []
+        thirdParty = try c.decodeIfPresent(ThirdPartyInfo.self, forKey: .thirdParty)
     }
 
     /// The window with the given label (`"5h"`, `"7d"`, `"7d fable"`), or nil.

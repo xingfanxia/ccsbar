@@ -18,8 +18,13 @@ owns no credentials and runs no network of its own.
   dist/macos/daemon-install.sh      # LaunchAgent (runs at login), or:
   clauth daemon                     # foreground, for a quick try
   ```
-  Without a running daemon, `status.json` goes stale and the menu shows
-  "clauth daemon not running".
+  clauthbar reads the daemon's liveness distinctly: if the daemon was never
+  started (no `status.json`), the menu shows **"clauth daemon not running"**; if
+  it wrote the file and then died, the panel keeps the last data under a loud
+  **"Daemon stalled — data from HH:MM"** banner (so a frozen % never reads as
+  current) and the menu-bar glyph dims; if the daemon's `status.json` schema is
+  newer than this build understands, it shows **"clauthbar out of date"** rather
+  than a misleading "not running".
 
 ## Run (development)
 

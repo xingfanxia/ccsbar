@@ -1,4 +1,15 @@
 import Foundation
+import os
+
+/// The outcome of reading `status.json` — distinguishes the states the panel must
+/// render differently (TECH-4): a live snapshot, no file yet, an unsupported
+/// schema (clauthbar out of date), or a corrupt/partial decode.
+enum StatusRead: Sendable {
+    case ok(DaemonStatus)
+    case fileMissing
+    case schemaUnsupported(Int)
+    case decodeFailed
+}
 
 /// Reads `~/.clauth/status.json` and drives `~/.clauth/clauthd.sock`.
 ///
@@ -13,12 +24,26 @@ enum DaemonClient {
     static var statusURL: URL { clauthDir.appendingPathComponent("status.json") }
     static var socketPath: String { clauthDir.appendingPathComponent("clauthd.sock").path }
 
+    private static let log = Logger(subsystem: "com.clauth.clauthbar", category: "daemon-client")
+
     // MARK: - Status (file)
 
-    /// Read + decode status.json, or nil if absent/unparseable.
-    static func readStatus() -> DaemonStatus? {
-        guard let data = try? Data(contentsOf: statusURL) else { return nil }
-        return try? JSONDecoder().decode(DaemonStatus.self, from: data)
+    /// Read status.json into one of four outcomes (TECH-4). The schema is probed
+    /// BEFORE the full decode so a future schema bump reads as "clauthbar out of
+    /// date", not "no daemon"; a genuine decode failure (corrupt/partial write) is
+    /// logged (not silently swallowed) and reported distinctly from a missing file.
+    static func readStatus() -> StatusRead {
+        guard let data = try? Data(contentsOf: statusURL) else { return .fileMissing }
+        if let probe = try? JSONDecoder().decode(SchemaProbe.self, from: data),
+           probe.schema != supportedSchema {
+            return .schemaUnsupported(probe.schema)
+        }
+        do {
+            return .ok(try JSONDecoder().decode(DaemonStatus.self, from: data))
+        } catch {
+            log.error("status.json decode failed: \(error.localizedDescription, privacy: .public)")
+            return .decodeFailed
+        }
     }
 
     /// mtime of status.json for cheap change detection.

@@ -7,8 +7,17 @@ struct Entry {
     @MainActor
     static func main() {
         let args = CommandLine.arguments
+        // `--snapshot <path>` renders the healthy panel to a PNG.
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             Snapshot.render(to: args[i + 1])
+            return
+        }
+        // `--snapshot=<variant>` renders a liveness variant (healthy|stale|schema2)
+        // to a temp PNG and prints the resolved state (TECH-4 verification harness).
+        if let arg = args.first(where: { $0.hasPrefix("--snapshot=") }) {
+            let variant = String(arg.dropFirst("--snapshot=".count))
+            let path = NSTemporaryDirectory() + "clauthbar-snapshot-\(variant).png"
+            Snapshot.render(variant: variant, to: path)
             return
         }
         ClauthBarApp.main()
@@ -39,7 +48,10 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         HStack(spacing: 3) {
+            // Dim the glyph when the daemon isn't live (stalled / out-of-date /
+            // down) so a frozen % is never read as current truth (TECH-4).
             Image(systemName: "gauge.with.dots.needle.bottom.50percent")
+                .foregroundStyle(model.isHealthy ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
             if let active = model.active {
                 Text(active.name)
                 if let five = active.fiveHour {
