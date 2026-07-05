@@ -250,6 +250,23 @@ struct PanelView: View {
     private var actions: some View {
         VStack(spacing: 1) {
             ActionRow(icon: "arrow.clockwise", title: "Refresh now") { model.refresh() }
+            // Autostart opt-out (TECH-14 #42) — only in the packaged .app, where
+            // SMAppService can register; a no-op toggle in `swift run` would mislead.
+            if LoginItem.isAvailable {
+                Toggle(isOn: Binding(
+                    get: { LoginItem.isEnabled },
+                    set: { LoginItem.setEnabled($0) }
+                )) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "power.circle").frame(width: 16)
+                        Text("Start at login")
+                        Spacer()
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .padding(.vertical, 5).padding(.horizontal, 8)
+            }
             ActionRow(icon: "power", title: "Quit clauthbar") { NSApp.terminate(nil) }
         }
         .padding(.horizontal, 8)

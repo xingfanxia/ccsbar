@@ -20,6 +20,13 @@ public func runClauthBar() {
         Snapshot.render(variant: variant, to: path)
         return
     }
+    // Real app path only (the --snapshot render above is expected to run alongside
+    // a live app, so it must NOT trip the guard): refuse to be a second instance,
+    // then register for autostart so the panel survives a reboot (TECH-14 #33/#42).
+    guard SingleInstance.acquire() else {
+        return // another clauthbar already owns the slot — bow out
+    }
+    LoginItem.registerIfNeeded()
     ClauthBarApp.main()
 }
 

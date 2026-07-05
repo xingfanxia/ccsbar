@@ -56,8 +56,14 @@ Configuration drives the daemon's control socket (`clauthd.sock`), so a running
 ```sh
 Scripts/package_app.sh        # → build/clauthbar.app (LSUIElement, ad-hoc signed)
 open build/clauthbar.app      # run it, or:
-cp -R build/clauthbar.app /Applications/   # then add to System Settings → Login Items
+cp -R build/clauthbar.app /Applications/   # install it
 ```
+
+**Autostart:** on first launch the app registers itself as a login item via
+`SMAppService`, so the panel comes back after a reboot (the daemon already does,
+via its LaunchAgent). Toggle it off any time with **Start at login** in the panel
+— no manual System Settings step. A single-instance guard means launching a
+second copy just bows out, and the running one keeps its single menu-bar item.
 
 ## Status
 

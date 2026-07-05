@@ -21,6 +21,11 @@
     <!-- Menu-bar accessory: no Dock icon, no app switcher entry. -->
     <key>LSUIElement</key>
     <true/>
+    <!-- LaunchServices refuses a second copy deterministically (TECH-14 #33);
+         SingleInstance.acquire() is the belt-and-suspenders guard for `open -n`
+         and `swift run`, where this key doesn't apply. -->
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
     <key>NSHumanReadableCopyright</key>
     <string>clauthbar — menu-bar companion for clauth</string>
 </dict>

@@ -10,8 +10,10 @@ import UserNotifications
 /// entry point no-ops unless running inside the packaged `.app`. This makes it
 /// operator-verifiable in the shipped app and a safe no-op in dev/tests.
 enum Notifier {
-    /// True only inside a real app bundle — the guard that keeps `swift run` safe.
-    static var isAvailable: Bool { Bundle.main.bundleIdentifier != nil }
+    /// True only inside the real packaged app — the guard that keeps `swift run`
+    /// AND `swift test` safe (`xctest` has its own bundle id, so a generic
+    /// "any bundle id" check would wrongly fire `.current()` under test).
+    static var isAvailable: Bool { AppBundle.isMainApp }
 
     /// Ask once; the decision is cached by the system thereafter.
     static func requestAuthorizationIfNeeded() {
