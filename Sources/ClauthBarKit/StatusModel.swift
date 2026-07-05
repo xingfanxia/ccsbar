@@ -485,11 +485,26 @@ final class StatusModel: ObservableObject {
         if !keepDismiss { switchDismissTask?.cancel() }
     }
 
-    func fallbackAdd(_ name: String) { run { DaemonClient.fallbackAdd(name) } }
-    func fallbackRemove(_ name: String) { run { DaemonClient.fallbackRemove(name) } }
-    func fallbackMove(_ name: String, up: Bool) { run { DaemonClient.fallbackMove(name, up: up) } }
-    func setThreshold(_ name: String, _ value: Int) { run { DaemonClient.setThreshold(name, value) } }
-    func setWrapOff(_ on: Bool) { run { DaemonClient.setWrapOff(on) } }
+    // Each config command carries a predicate for its ACTUAL effect so the settle
+    // ladder stops re-reading only once the change has landed — not on the next
+    // unrelated ~1s status write (which would drop detection onto the slow 4s poll).
+    func fallbackAdd(_ name: String) {
+        run({ DaemonClient.fallbackAdd(name) }, expecting: { $0.fallbackChain.contains(name) })
+    }
+    func fallbackRemove(_ name: String) {
+        run({ DaemonClient.fallbackRemove(name) }, expecting: { !$0.fallbackChain.contains(name) })
+    }
+    func fallbackMove(_ name: String, up: Bool) {
+        let baseline = status?.fallbackChain ?? []
+        run({ DaemonClient.fallbackMove(name, up: up) }, expecting: { $0.fallbackChain != baseline })
+    }
+    func setThreshold(_ name: String, _ value: Int) {
+        run({ DaemonClient.setThreshold(name, value) },
+            expecting: { $0.profiles.first { $0.name == name }?.fallback?.threshold == Double(value) })
+    }
+    func setWrapOff(_ on: Bool) {
+        run({ DaemonClient.setWrapOff(on) }, expecting: { $0.wrapOff == on })
+    }
     // Refreshes are usage re-fetches, not config edits — no "Applying…" shimmer.
     // (Explicit `work:`-position arg, not a trailing closure, so it can't bind to
     // the optional `expecting` closure param instead.)
@@ -577,17 +592,19 @@ final class StatusModel: ObservableObject {
         }
     }
 
-    /// Verification ladder for CONFIG commands (TECH-11): the daemon applies queued
-    /// edits on its next ~1s tick, so a single fixed re-read routinely lands before
-    /// the change is visible. Re-read on a backoff (PER-ITERATION sleeps; cumulative
-    /// t ≈ 0.6/1.8/4.2/9.0s) until `generated_at` advances AND the expected effect
-    /// holds, then stop early. Unlike the switch ladder this never declares failure,
-    /// so the longer tail is fine. Cancels any in-flight ladder.
+    /// Verification ladder for CONFIG commands (TECH-11): re-read `status.json` until
+    /// `generated_at` advances AND the command's `expecting` effect actually holds,
+    /// then stop. The predicate is load-bearing — WITHOUT it the ladder would stop on
+    /// the next unrelated ~1s status write (the daemon rewrites every tick), often
+    /// BEFORE the edit lands, dropping detection onto the slow 4s poll (the "3s lag").
+    /// Cadence is front-loaded (cumulative ≈ 0.15/0.35/0.6/0.95/1.45/2.15/3.15/4.45s)
+    /// so it catches the daemon's write promptly — sub-second once the daemon applies
+    /// config ops immediately. Never declares failure; cancels any in-flight ladder.
     private func settle(expecting predicate: (@Sendable (DaemonStatus) -> Bool)? = nil) {
         let baseline = status?.generatedAt
         settleTask?.cancel()
         settleTask = Task { [weak self] in
-            for sleep in [0.6, 1.2, 2.4, 4.8] {
+            for sleep in [0.15, 0.2, 0.25, 0.35, 0.5, 0.7, 1.0, 1.3] {
                 try? await Task.sleep(for: .seconds(sleep))
                 guard let self, !Task.isCancelled else { return }
                 self.reload()
