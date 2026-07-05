@@ -9,10 +9,22 @@ enum Snapshot {
     @MainActor
     static func render(to path: String) { render(variant: "healthy", to: path) }
 
-    /// Render a specific liveness variant (TECH-4 harness): `healthy` (live panel),
-    /// `stale` (stalled banner over content), `schema2` (clauthbar-out-of-date
-    /// state). Prints the RESOLVED liveness to stderr so the state logic is
-    /// verifiable without eyeballing the PNG (`--snapshot=stale` → daemonStalled=true).
+    /// Re-serialize the fixture with `clauth_version` swapped, for the skew variant.
+    /// Fields are `let`, so this round-trips through a dictionary rather than mutating.
+    private static func fixtureWithVersion(_ version: String, from data: Data) -> DaemonStatus? {
+        guard var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        dict["clauth_version"] = version
+        guard let bumped = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+        return try? JSONDecoder().decode(DaemonStatus.self, from: bumped)
+    }
+
+    /// Render a specific liveness variant (TECH-4/TECH-11 harness): `healthy` (live
+    /// panel), `stale` (stalled banner over content), `schema2` (out-of-date state),
+    /// `skew` (mismatched clauth_version → version-skew badge). Prints the RESOLVED
+    /// liveness + skew to stderr so the state logic is verifiable without eyeballing
+    /// the PNG (`--snapshot=stale` → daemonStalled=true, `--snapshot=skew` → skew=…).
     @MainActor
     static func render(variant: String, to path: String) {
         guard let data = Fixtures.statusJSONData(),
@@ -25,6 +37,7 @@ enum Snapshot {
             switch variant {
             case "stale": return (mock, .stalled(since: "05:00"))
             case "schema2": return (nil, .outOfDate(schema: 2))
+            case "skew": return (fixtureWithVersion("9.9.9", from: data) ?? mock, .ok)
             default: return (mock, .ok)
             }
         }()
@@ -35,7 +48,8 @@ enum Snapshot {
         case .outOfDate(let n): resolved = "outOfDate(schema: \(n))"
         case .down: resolved = "down"
         }
-        FileHandle.standardError.write(Data("snapshot[\(variant)]: liveness=\(resolved)\n".utf8))
+        let skewNote = StatusModel(preview: status, liveness: liveness).versionSkew.map { " skew=\($0)" } ?? ""
+        FileHandle.standardError.write(Data("snapshot[\(variant)]: liveness=\(resolved)\(skewNote)\n".utf8))
 
         let model = StatusModel(preview: status, liveness: liveness)
         model.showConfig = true // render with the config section open

@@ -10,6 +10,11 @@ struct PanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // A command error is orthogonal to liveness — surface it above everything
+            // so a rejected tap is never silent (TECH-11).
+            if let error = model.lastCommandError {
+                commandErrorBanner(error)
+            }
             switch model.liveness {
             case .down:
                 emptyState
@@ -28,6 +33,22 @@ struct PanelView: View {
         }
         .frame(width: 320)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - Command-outcome banner (TECH-11)
+
+    /// A transient toast for the last command's error (a daemon rejection or an
+    /// unreachable daemon). Auto-clears; the model owns the timing.
+    private func commandErrorBanner(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "xmark.octagon.fill").foregroundStyle(Theme.danger)
+            Text(message).font(.caption).foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Theme.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.bottom, 6)
     }
 
     // MARK: - Liveness banners (TECH-4)
@@ -83,6 +104,8 @@ struct PanelView: View {
         Divider().padding(.horizontal, 12).padding(.vertical, 10)
         ConfigView(model: model, status: status).padding(.horizontal, 16)
 
+        footerMeta(status)
+
         Divider().padding(.horizontal, 12).padding(.vertical, 8)
         actions
     }
@@ -92,7 +115,9 @@ struct PanelView: View {
     private func switcher(_ status: DaemonStatus) -> some View {
         HStack(spacing: 8) {
             ForEach(model.orderedProfiles) { p in
-                AccountTile(p: p) { model.switchTo(p.name) }
+                // Disable every tile while a switch is in flight so a double-tap
+                // can't fire two concurrent switches (M5/TECH-11).
+                AccountTile(p: p, disabled: model.switchInFlight) { model.switchTo(p.name) }
             }
         }
     }
@@ -167,6 +192,59 @@ struct PanelView: View {
         .padding(.horizontal, 16)
     }
 
+    // MARK: - Footer meta (last switch + version skew) — TECH-11
+
+    /// A quiet footer: the last executed switch (so the hero event is visible, not
+    /// buried in daemon.log) and a soft version-skew badge when the daemon's clauth
+    /// version differs from what this clauthbar targets.
+    @ViewBuilder
+    private func footerMeta(_ status: DaemonStatus) -> some View {
+        let skew = model.versionSkew
+        if status.lastSwitch != nil || skew != nil {
+            VStack(alignment: .leading, spacing: 4) {
+                Divider().padding(.vertical, 8)
+                if let ls = status.lastSwitch {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.left.arrow.right").font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
+                        Text(lastSwitchText(ls)).font(.caption2).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+                }
+                if let daemonVersion = skew {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.up.circle").font(.system(size: 9))
+                            .foregroundStyle(Theme.warning)
+                        Text("daemon clauth \(daemonVersion); clauthbar targets \(StatusModel.expectedClauthVersion)")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    /// "switched work → home · 2m ago (auto)" — coarse, quiet.
+    private func lastSwitchText(_ ls: LastSwitch) -> String {
+        let target = ls.to ?? "off"
+        let arrow = ls.from.map { "\($0) → \(target)" } ?? target
+        let via = ls.trigger == "user" ? "" : " (\(ls.trigger))"
+        if let when = Theme.parseISO(ls.at) {
+            let ago = agoText(Int(Date().timeIntervalSince(when)))
+            return "switched \(arrow) · \(ago)\(via)"
+        }
+        return "switched \(arrow)\(via)"
+    }
+
+    /// Coarse "N{m,h,d} ago" from a positive second count.
+    private func agoText(_ secs: Int) -> String {
+        if secs < 60 { return "just now" }
+        if secs < 3600 { return "\(secs / 60)m ago" }
+        if secs < 86_400 { return "\(secs / 3600)h ago" }
+        return "\(secs / 86_400)d ago"
+    }
+
     // MARK: - Actions
 
     private var actions: some View {
@@ -198,6 +276,7 @@ struct PanelView: View {
 /// the accent when active; tap to switch the global account.
 private struct AccountTile: View {
     let p: ProfileStatus
+    var disabled: Bool = false
     let onTap: () -> Void
 
     var body: some View {
@@ -221,6 +300,8 @@ private struct AccountTile: View {
             .foregroundStyle(p.active ? Color.white : Color.primary)
         }
         .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled && !p.active ? 0.5 : 1)
         .help(p.active ? "Active account" : "Switch to \(p.name)")
     }
 }

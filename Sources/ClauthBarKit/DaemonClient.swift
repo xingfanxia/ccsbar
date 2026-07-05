@@ -11,6 +11,26 @@ enum StatusRead: Sendable {
     case decodeFailed
 }
 
+/// The outcome of a daemon command (TECH-11). The three cases must NOT collapse to
+/// one nil: a daemon *rejection* (`ok:false` with an `error_code`) is authoritative
+/// and must NOT trigger the daemon-ABSENCE shell fallback, and it carries an error
+/// the UI is obligated to surface ('errors must be loud').
+enum CommandOutcome: Sendable, Equatable {
+    /// Accepted (`ok:true`), or the CLI fallback exited 0.
+    case ok
+    /// The daemon replied `ok:false` — a real rejection (unknown_profile, busy,
+    /// auth_broken, invalid_value), or the CLI fallback exited non-zero.
+    case daemonError(code: String, message: String)
+    /// No daemon reachable (no socket / transport failure) AND no working CLI —
+    /// nothing applied the command.
+    case unreachable
+
+    var errorMessage: String? {
+        if case .daemonError(_, let message) = self { return message }
+        return nil
+    }
+}
+
 /// Reads `~/.clauth/status.json` and drives `~/.clauth/clauthd.sock`.
 ///
 /// Display is a plain file read (the daemon rewrites status.json every tick, so
@@ -59,64 +79,124 @@ enum DaemonClient {
 
     // MARK: - Commands
 
-    /// Switch the global active profile. Socket first, `clauth <name>` fallback.
-    static func switchTo(_ profile: String) {
-        if sendCommand(["cmd": "switch", "profile": profile]) != nil { return }
-        shellClauth([profile])
+    /// Switch the global active profile. Socket first; on an UNREACHABLE daemon fall
+    /// back to `clauth <name>` (the CLI does the switch itself). A daemon *rejection*
+    /// (`ok:false`) is authoritative and does NOT fall back — falling back there would
+    /// fire the daemon-absence path against a present daemon and hide the real error.
+    static func switchTo(_ profile: String) -> CommandOutcome {
+        switchTo(profile, send: { sendCommand($0) })
+    }
+
+    /// Testable seam for the fallback POLICY (the feature's headline invariant): a
+    /// daemon *rejection* returns verbatim and must NOT shell — only an UNREACHABLE
+    /// daemon (no socket / never delivered) falls back to `clauth <name>`. `send`
+    /// defaults to the real socket command; tests inject a classified reply.
+    static func switchTo(_ profile: String, send: ([String: Any]) -> CommandOutcome) -> CommandOutcome {
+        switch send(["cmd": "switch", "profile": profile]) {
+        case .ok: return .ok
+        case .daemonError(let code, let message): return .daemonError(code: code, message: message)
+        case .unreachable: return shellClauth([profile])
+        }
     }
 
     /// Force a usage re-fetch (all profiles when `profile` is nil). Socket only —
     /// there's no `clauth refresh` CLI, and a missed manual refresh is harmless
     /// (the daemon refreshes on its own cadence).
-    static func refresh(_ profile: String?) {
+    @discardableResult
+    static func refresh(_ profile: String?) -> CommandOutcome {
         var cmd: [String: Any] = ["cmd": "refresh"]
         if let profile { cmd["profile"] = profile }
-        _ = sendCommand(cmd)
+        return sendCommand(cmd)
     }
 
     // MARK: - Fallback configuration (socket only — needs a running daemon)
 
     /// Append a profile to the fallback chain.
     @discardableResult
-    static func fallbackAdd(_ profile: String) -> Bool {
-        sendCommand(["cmd": "fallback_add", "profile": profile]) != nil
+    static func fallbackAdd(_ profile: String) -> CommandOutcome {
+        sendCommand(["cmd": "fallback_add", "profile": profile])
     }
 
     /// Remove a profile from the fallback chain.
     @discardableResult
-    static func fallbackRemove(_ profile: String) -> Bool {
-        sendCommand(["cmd": "fallback_remove", "profile": profile]) != nil
+    static func fallbackRemove(_ profile: String) -> CommandOutcome {
+        sendCommand(["cmd": "fallback_remove", "profile": profile])
     }
 
     /// Move a chain member one slot up (`up: true`) or down.
     @discardableResult
-    static func fallbackMove(_ profile: String, up: Bool) -> Bool {
-        sendCommand(["cmd": "fallback_move", "profile": profile, "dir": up ? "up" : "down"]) != nil
+    static func fallbackMove(_ profile: String, up: Bool) -> CommandOutcome {
+        sendCommand(["cmd": "fallback_move", "profile": profile, "dir": up ? "up" : "down"])
     }
 
     /// Set a profile's 5h auto-switch threshold (0…100).
     @discardableResult
-    static func setThreshold(_ profile: String, _ value: Int) -> Bool {
-        sendCommand(["cmd": "set_threshold", "profile": profile, "value": value]) != nil
+    static func setThreshold(_ profile: String, _ value: Int) -> CommandOutcome {
+        sendCommand(["cmd": "set_threshold", "profile": profile, "value": value])
     }
 
     /// Toggle wrap-off mode (switch every account off once the chain is spent).
     @discardableResult
-    static func setWrapOff(_ on: Bool) -> Bool {
-        sendCommand(["cmd": "set_wrap_off", "value": on]) != nil
+    static func setWrapOff(_ on: Bool) -> CommandOutcome {
+        sendCommand(["cmd": "set_wrap_off", "value": on])
     }
 
     // MARK: - Socket
 
-    /// Send one newline-delimited JSON command and parse the reply object.
-    @discardableResult
-    private static func sendCommand(_ command: [String: Any]) -> [String: Any]? {
-        guard let payload = try? JSONSerialization.data(withJSONObject: command),
-              let reply = sendRaw(payload),
-              let obj = try? JSONSerialization.jsonObject(with: reply) as? [String: Any],
-              obj["ok"] as? Bool == true
-        else { return nil }
-        return obj
+    /// The transport-level result of one socket round-trip, kept DISTINCT from the
+    /// application-level `CommandOutcome` (M1/TECH-11): `sendCommand` must tell "no
+    /// daemon" (safe for `switchTo` to shell-fallback) apart from "daemon was there
+    /// but went quiet" (must NOT fall back — it likely already applied the command).
+    private enum RawReply {
+        /// Never connected: no socket file, connect refused, or the command couldn't
+        /// even be written (nothing was delivered → safe to fall back).
+        case noSocket
+        /// Connected AND wrote the command, but got no usable reply before the read
+        /// deadline (a switch can hold the daemon's lock across a ~3s Keychain rewrite,
+        /// longer than the 2s read timeout). The daemon very likely applied it.
+        case connectedNoReply
+        /// Got a line back to classify.
+        case reply(Data)
+    }
+
+    /// Send one newline-delimited JSON command and classify the reply (TECH-11).
+    private static func sendCommand(_ command: [String: Any]) -> CommandOutcome {
+        guard let payload = try? JSONSerialization.data(withJSONObject: command) else {
+            return .unreachable
+        }
+        switch sendRaw(payload) {
+        case .noSocket:
+            return .unreachable
+        case .connectedNoReply:
+            // We reached the daemon and delivered the command; a missing reply is NOT
+            // absence. Returning .unreachable here would let switchTo shell `clauth`,
+            // DOUBLE-applying an already-applied switch (two Keychain rewrites, two
+            // logout storms). Surface it loudly instead — errors must be loud.
+            return .daemonError(
+                code: "no_reply",
+                message: "the daemon didn't confirm in time — it may still be applying the change"
+            )
+        case .reply(let data):
+            return classifyReply(data)
+        }
+    }
+
+    /// Pure classification of a raw socket reply into a [`CommandOutcome`] (split
+    /// from the socket I/O so the ok / reject / unreachable branching is testable):
+    /// `ok:true` → `.ok`; `ok:false` → `.daemonError(error_code, error)`; a nil,
+    /// non-object, or unparseable reply → `.unreachable` (transport failure).
+    static func classifyReply(_ reply: Data?) -> CommandOutcome {
+        guard let reply,
+              let obj = try? JSONSerialization.jsonObject(with: reply) as? [String: Any]
+        else { return .unreachable }
+        // Tolerate `"ok": true` OR a truthy `"ok": 1` — the daemon emits a real JSON
+        // bool today, but a serializer swap must not turn a success into a spurious
+        // error banner (defensive; M6/TECH-11).
+        let ok = (obj["ok"] as? Bool) ?? (obj["ok"] as? NSNumber)?.boolValue
+        if ok == true { return .ok }
+        let code = obj["error_code"] as? String ?? "unknown"
+        let message = obj["error"] as? String ?? "the daemon rejected the command"
+        return .daemonError(code: code, message: message)
     }
 
     /// Per-call socket read/write deadline. A switch can hold the daemon's config
@@ -128,13 +208,14 @@ enum DaemonClient {
     /// limit; the daemon's replies are tens of bytes.
     private static let maxReplyBytes = 1 << 20
 
-    /// Connect to the unix socket, write one line, read the reply. Returns nil on
-    /// any failure (no socket, connect refused, timeout, short/empty read) so
-    /// callers can fall back. MUST be called off the main actor (see `StatusModel`):
-    /// the connect/write/read are blocking, and this is the beach-ball source #25.
-    private static func sendRaw(_ payload: Data) -> Data? {
+    /// Connect to the unix socket, write one line, read the reply. Distinguishes
+    /// never-reached (`.noSocket`) from reached-but-silent (`.connectedNoReply`) so
+    /// `sendCommand` can keep a reply-timeout from triggering the shell fallback
+    /// (M1/TECH-11). MUST be called off the main actor (see `StatusModel`): the
+    /// connect/write/read are blocking, and this is the beach-ball source #25.
+    private static func sendRaw(_ payload: Data) -> RawReply {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return nil }
+        guard fd >= 0 else { return .noSocket }
         defer { close(fd) }
 
         // Never let a write to a peer-closed fd raise SIGPIPE (fatal on macOS with
@@ -148,7 +229,13 @@ enum DaemonClient {
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = socketPath.utf8CString
+        let pathBytes = socketPath.utf8CString // includes the trailing NUL
+        // Refuse rather than silently truncate: a path that doesn't fit sun_path
+        // (incl. its NUL) would connect to the WRONG socket (M7/TECH-11). Not
+        // reachable for ~/.clauth/clauthd.sock, but truncation is a nasty failure.
+        guard pathBytes.count <= MemoryLayout.size(ofValue: addr.sun_path) else {
+            return .noSocket
+        }
         withUnsafeMutableBytes(of: &addr.sun_path) { raw in
             let dst = raw.bindMemory(to: CChar.self)
             for i in 0..<min(pathBytes.count, dst.count) {
@@ -159,7 +246,7 @@ enum DaemonClient {
         let connected = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, size) }
         }
-        guard connected == 0 else { return nil }
+        guard connected == 0 else { return .noSocket }
 
         var line = payload
         line.append(0x0A) // newline-delimited
@@ -174,7 +261,9 @@ enum DaemonClient {
             }
             return true
         }
-        guard wroteAll else { return nil }
+        // A failed write means the command was never delivered — the daemon didn't
+        // apply anything, so a shell fallback here is safe (no double-apply).
+        guard wroteAll else { return .noSocket }
 
         // Read until the newline terminator or EOF — one read() may not carry the
         // whole reply. Bounded by maxReplyBytes and the recv timeout.
@@ -186,7 +275,9 @@ enum DaemonClient {
             response.append(contentsOf: chunk[0..<n])
             if chunk[0..<n].contains(0x0A) { break } // reply is one line
         }
-        return response.isEmpty ? nil : response
+        // Reached the daemon and delivered the command; an empty read is "went
+        // quiet", NOT absence — sendCommand surfaces it instead of falling back.
+        return response.isEmpty ? .connectedNoReply : .reply(response)
     }
 
     // MARK: - Shell fallback
@@ -201,11 +292,25 @@ enum DaemonClient {
         return nil
     }
 
-    private static func shellClauth(_ args: [String]) {
-        guard let bin = clauthBinary() else { return }
+    /// Run `clauth <args>` and report its outcome by exit status (TECH-11). Blocking
+    /// (waits for exit) — only reached from the off-main-actor command path, and a
+    /// switch's Keychain write is a couple seconds at most. Exit 0 → `.ok`; non-zero
+    /// or spawn failure → `.daemonError`; no binary at all → `.unreachable`.
+    private static func shellClauth(_ args: [String]) -> CommandOutcome {
+        guard let bin = clauthBinary() else {
+            return .unreachable
+        }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: bin)
         proc.arguments = args
-        try? proc.run()
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+            return proc.terminationStatus == 0
+                ? .ok
+                : .daemonError(code: "cli_failed", message: "clauth exited \(proc.terminationStatus)")
+        } catch {
+            return .daemonError(code: "cli_failed", message: "could not run clauth: \(error.localizedDescription)")
+        }
     }
 }

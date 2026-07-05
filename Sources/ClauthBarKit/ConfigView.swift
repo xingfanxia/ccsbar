@@ -15,13 +15,25 @@ struct ConfigView: View {
     var body: some View {
         DisclosureGroup(isExpanded: $model.showConfig) {
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(status.profiles) { p in
-                    row(for: p)
+                // Every control here needs a running daemon (socket-only commands).
+                // With the daemon down, disable + dim them and say why — a silent
+                // no-op is worse than a visibly-inert control (TECH-11).
+                let reachable = model.daemonReachable
+                if !reachable {
+                    Label("Daemon not running — controls disabled", systemImage: "bolt.slash")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
-                Divider().padding(.vertical, 2)
-                wrapOffRow
-                Text("When the whole chain is spent: on switches every account off; off stays on the last.")
-                    .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(status.profiles) { p in
+                        row(for: p)
+                    }
+                    Divider().padding(.vertical, 2)
+                    wrapOffRow
+                    Text("When the whole chain is spent: on switches every account off; off stays on the last.")
+                        .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                }
+                .disabled(!reachable)
+                .opacity(reachable ? 1 : 0.45)
             }
             .padding(.top, 10)
         } label: {

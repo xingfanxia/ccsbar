@@ -24,6 +24,18 @@ struct DaemonStatus: Codable, Sendable {
     /// Ordered fallback-chain member names (the auto-switch order).
     let fallbackChain: [String]
     let profiles: [ProfileStatus]
+    /// The clauth binary version that wrote this file (TECH-8/TECH-11) — always
+    /// present; drives the soft version-skew badge.
+    let clauthVersion: String?
+    /// The switch target the daemon accepted but hasn't applied yet, else nil
+    /// (AUTH-2). Decoded for forward-compat / contract mirroring; not yet surfaced
+    /// in the panel (the settle ladder already tracks in-flight truth via
+    /// `activeProfile`). Wire into a "switching…" affordance if it earns one.
+    let pendingSwitch: String?
+    /// The last executed switch (TECH-8), for the "last switch" line, or nil.
+    let lastSwitch: LastSwitch?
+    /// The last drain skip/failure reason (TECH-6), or nil.
+    let lastError: LastError?
 
     enum CodingKeys: String, CodingKey {
         case schema
@@ -33,10 +45,14 @@ struct DaemonStatus: Codable, Sendable {
         case refreshIntervalMs = "refresh_interval_ms"
         case fallbackChain = "fallback_chain"
         case profiles
+        case clauthVersion = "clauth_version"
+        case pendingSwitch = "pending_switch"
+        case lastSwitch = "last_switch"
+        case lastError = "last_error"
     }
 
-    /// Decode `fallback_chain` leniently — treat a missing field as empty so an
-    /// older daemon's status.json still decodes.
+    /// Decode additively — every field the daemon added after schema 1 is
+    /// `decodeIfPresent` so an older daemon's status.json still decodes.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schema = try c.decode(Int.self, forKey: .schema)
@@ -46,7 +62,26 @@ struct DaemonStatus: Codable, Sendable {
         refreshIntervalMs = try c.decode(Int.self, forKey: .refreshIntervalMs)
         fallbackChain = try c.decodeIfPresent([String].self, forKey: .fallbackChain) ?? []
         profiles = try c.decode([ProfileStatus].self, forKey: .profiles)
+        clauthVersion = try c.decodeIfPresent(String.self, forKey: .clauthVersion)
+        pendingSwitch = try c.decodeIfPresent(String.self, forKey: .pendingSwitch)
+        lastSwitch = try c.decodeIfPresent(LastSwitch.self, forKey: .lastSwitch)
+        lastError = try c.decodeIfPresent(LastError.self, forKey: .lastError)
     }
+}
+
+/// The last executed switch, mirrored from `status.json.last_switch` (TECH-8).
+struct LastSwitch: Codable, Sendable, Equatable {
+    let from: String?
+    let to: String?
+    let at: String
+    /// `"user"` (socket tap), `"scheduler"` (auto), or `"wrap_off"`.
+    let trigger: String
+}
+
+/// The last drain skip/failure reason, mirrored from `status.json.last_error` (TECH-6).
+struct LastError: Codable, Sendable, Equatable {
+    let at: String
+    let message: String
 }
 
 struct ProfileStatus: Codable, Sendable, Identifiable {
