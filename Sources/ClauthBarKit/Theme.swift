@@ -43,7 +43,13 @@ enum Theme {
     /// Two units max, coarsest first (weekly windows read in days, not "136h").
     static func resetHint(_ iso: String?) -> String? {
         guard let iso, let date = parseISO(iso) else { return nil }
-        let secs = Int(date.timeIntervalSinceNow)
+        return resetHintText(secondsRemaining: Int(date.timeIntervalSinceNow))
+    }
+
+    /// Pure d/h/m formatting — the finding-prone bit, split from the `Date.now`
+    /// read so the boundary logic is deterministically unit-testable (the clock is
+    /// the caller's). `secs <= 0` (already past) → nil.
+    static func resetHintText(secondsRemaining secs: Int) -> String? {
         guard secs > 0 else { return nil }
         let d = secs / 86_400
         let h = (secs % 86_400) / 3600

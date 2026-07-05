@@ -80,11 +80,18 @@ final class StatusModel: ObservableObject {
     private static func staleness(of s: DaemonStatus) -> Liveness {
         guard let written = Theme.parseISO(s.generatedAt) else { return .ok }
         let age = Date().timeIntervalSince(written)
-        let staleAfter = max(3 * Double(s.refreshIntervalMs) / 1000, 15)
-        guard age > staleAfter else { return .ok }
+        guard isStale(ageSeconds: age, refreshIntervalMs: s.refreshIntervalMs) else { return .ok }
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         return .stalled(since: f.string(from: written))
+    }
+
+    /// Pure staleness predicate (the finding-prone threshold, split from the clock
+    /// read so it is deterministically testable). Stale once `age` exceeds
+    /// `max(3× the refresh interval, 15s)` — the daemon rewrites status.json every
+    /// 1s tick, so a larger gap means it stopped ticking.
+    nonisolated static func isStale(ageSeconds: Double, refreshIntervalMs: Int) -> Bool {
+        ageSeconds > max(3 * Double(refreshIntervalMs) / 1000, 15)
     }
 
     var active: ProfileStatus? { status?.profiles.first { $0.active } }

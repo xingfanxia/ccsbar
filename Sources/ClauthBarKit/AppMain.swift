@@ -1,27 +1,26 @@
 import SwiftUI
 
-/// Process entry. Normally runs the menu-bar app; `--snapshot <path>` renders the
-/// panel to a PNG and exits (a dev aid, see `Snapshot`).
-@main
-struct Entry {
-    @MainActor
-    static func main() {
-        let args = CommandLine.arguments
-        // `--snapshot <path>` renders the healthy panel to a PNG.
-        if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
-            Snapshot.render(to: args[i + 1])
-            return
-        }
-        // `--snapshot=<variant>` renders a liveness variant (healthy|stale|schema2)
-        // to a temp PNG and prints the resolved state (TECH-4 verification harness).
-        if let arg = args.first(where: { $0.hasPrefix("--snapshot=") }) {
-            let variant = String(arg.dropFirst("--snapshot=".count))
-            let path = NSTemporaryDirectory() + "clauthbar-snapshot-\(variant).png"
-            Snapshot.render(variant: variant, to: path)
-            return
-        }
-        ClauthBarApp.main()
+/// Process entry (the executable target's `@main` calls this). Normally runs the
+/// menu-bar app; `--snapshot <path>` renders the panel to a PNG and exits (a dev
+/// aid, see `Snapshot`). Public so the thin `clauthbar` executable can invoke it;
+/// everything else in ClauthBarKit stays internal for `@testable import`.
+@MainActor
+public func runClauthBar() {
+    let args = CommandLine.arguments
+    // `--snapshot <path>` renders the healthy panel to a PNG.
+    if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
+        Snapshot.render(to: args[i + 1])
+        return
     }
+    // `--snapshot=<variant>` renders a liveness variant (healthy|stale|schema2)
+    // to a temp PNG and prints the resolved state (TECH-4 verification harness).
+    if let arg = args.first(where: { $0.hasPrefix("--snapshot=") }) {
+        let variant = String(arg.dropFirst("--snapshot=".count))
+        let path = NSTemporaryDirectory() + "clauthbar-snapshot-\(variant).png"
+        Snapshot.render(variant: variant, to: path)
+        return
+    }
+    ClauthBarApp.main()
 }
 
 /// A menu-bar-only SwiftUI app (`LSUIElement` in Info.plist keeps it out of the
