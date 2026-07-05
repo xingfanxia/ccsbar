@@ -31,13 +31,18 @@ struct ConfigView: View {
                     // (PanelView.removalConfirmBanner) so it's visible whether the
                     // remove came from this disclosure or the row context menu — the
                     // disclosure is collapsed by default.
-                    ForEach(status.profiles) { p in
+                    //
+                    // Rows follow CHAIN order (unlike the main ACCOUNTS list, which is
+                    // fixed file order): this is the chain editor, so Move up/down must
+                    // visibly reorder the rows. The order animates on `fallbackChain`.
+                    ForEach(orderedConfigProfiles) { p in
                         row(for: p)
                     }
                     thresholdLegend
                     Divider().padding(.vertical, 4)
                     wrapOffRadio
                 }
+                .animation(.easeInOut(duration: 0.2), value: status.fallbackChain)
                 .disabled(!reachable)
                 .opacity(reachable ? 1 : 0.45)
             }
@@ -53,6 +58,11 @@ struct ConfigView: View {
             }
         }
         .tint(Theme.accent)
+    }
+
+    /// Chain members first (in chain order), then non-members — see `ChainEdit`.
+    private var orderedConfigProfiles: [ProfileStatus] {
+        ChainEdit.chainOrdered(status.profiles, chain: status.fallbackChain)
     }
 
     // MARK: - Per-account row (28pt hit-target standard)

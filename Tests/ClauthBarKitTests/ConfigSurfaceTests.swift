@@ -37,6 +37,41 @@ final class ConfigSurfaceTests: XCTestCase {
         XCTAssertFalse(copy.contains("wrap off"))
     }
 
+    // MARK: - Config row order = chain order (so Move up/down reorders visibly)
+
+    func testChainOrderedMembersByChainThenNonMembersInFileOrder() throws {
+        // File order interleaves members + non-members: [b(non), a(chain[0]), d(non),
+        // c(chain[1])]. Expect members in CHAIN order (a, c) then non-members in FILE
+        // order (b, d) — proves both the chain-order sort AND non-member stability.
+        let s = try status("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"a",
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":["a","c"],
+         "profiles":[
+           {"name":"b","active":false},
+           {"name":"a","active":true,"fallback":{"position":1,"threshold":95,"armed":true}},
+           {"name":"d","active":false},
+           {"name":"c","active":false,"fallback":{"position":2,"threshold":95,"armed":false}}
+         ]}
+        """)
+        XCTAssertEqual(ChainEdit.chainOrdered(s.profiles, chain: s.fallbackChain).map(\.name),
+                       ["a", "c", "b", "d"])
+        // The member prefix equals fallbackChain exactly — the invariant that keeps
+        // the config rows consistent with the chain-rail chips + detail-card ordinal.
+        let members = ChainEdit.chainOrdered(s.profiles, chain: s.fallbackChain).prefix(s.fallbackChain.count)
+        XCTAssertEqual(members.map(\.name), s.fallbackChain)
+    }
+
+    func testChainOrderedEmptyChainIsFileOrder() throws {
+        // No members → every profile is a non-member → order is unchanged file order.
+        let s = try status("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"xfx2",
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
+         "profiles":[{"name":"zai","active":false},{"name":"xfx2","active":true},{"name":"cl-ax","active":false}]}
+        """)
+        XCTAssertEqual(ChainEdit.chainOrdered(s.profiles, chain: s.fallbackChain).map(\.name),
+                       ["zai", "xfx2", "cl-ax"])
+    }
+
     // MARK: - Removal consequence (the armed-member gate)
 
     // `position` is 1-based to match the daemon contract (status_json.rs / the
@@ -79,7 +114,7 @@ final class ConfigSurfaceTests: XCTestCase {
         {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"xfx",
          "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":["xfx","cl-ax"],
          "profiles":[
-           {"name":"xfx","active":true,"fallback":{"position":0,"threshold":95,"armed":true}},
+           {"name":"xfx","active":true,"fallback":{"position":1,"threshold":95,"armed":true}},
            {"name":"cl-ax","active":false,"fallback":{"position":2,"threshold":90,"armed":true}}
          ]}
         """)

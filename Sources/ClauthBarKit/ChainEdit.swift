@@ -14,6 +14,21 @@ enum ChainEdit {
     /// rotating off it.
     static let thresholdPresets = [50, 80, 90, 95, 100]
 
+    /// Chain members first — ordered by their index in `chain` (the `fallbackChain`
+    /// name array, the SAME source the chain-rail chips and the detail-card ordinal
+    /// read, so all three chain-order surfaces agree by construction) — then any
+    /// non-members (the "Add" rows) in file order. The config editor renders rows in
+    /// this order, unlike the main ACCOUNTS list's fixed file order, so Move up/down
+    /// visibly reorders the list. A member somehow absent from `chain` sorts last
+    /// among members (stable → file order). Pure, so it's unit-tested.
+    static func chainOrdered(_ profiles: [ProfileStatus], chain: [String]) -> [ProfileStatus] {
+        let members = profiles
+            .filter { $0.fallback != nil }
+            .sorted { (chain.firstIndex(of: $0.name) ?? .max) < (chain.firstIndex(of: $1.name) ?? .max) }
+        let nonMembers = profiles.filter { $0.fallback == nil }
+        return members + nonMembers
+    }
+
     /// The menu label for a preset. 100 reads as "Last resort" (a sink, not a
     /// rotate-at-100% threshold) so the menu never implies the chain leaves it.
     static func thresholdLabel(_ value: Int) -> String {
