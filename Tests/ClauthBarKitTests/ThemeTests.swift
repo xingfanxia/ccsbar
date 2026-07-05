@@ -60,12 +60,13 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(Theme.resetHintText(secondsRemaining: 30), "resets in 0m")
     }
 
-    // MARK: usageColor — healthy → warning at 80% of threshold → danger at threshold.
+    // MARK: usageColor — green headroom → amber at 80% of threshold → red at
+    // threshold (healthy is GREEN, not the active-only terracotta — CBAR-4 §5).
 
     func testUsageColorBands() {
         // threshold 95 → warning band starts at 0.8×95 = 76.
-        XCTAssertEqual(Theme.usageColor(10, threshold: 95), Theme.accent)   // healthy
-        XCTAssertEqual(Theme.usageColor(75, threshold: 95), Theme.accent)   // just under 76 → still healthy
+        XCTAssertEqual(Theme.usageColor(10, threshold: 95), Theme.success)  // healthy → green
+        XCTAssertEqual(Theme.usageColor(75, threshold: 95), Theme.success)  // just under 76 → still healthy
         XCTAssertEqual(Theme.usageColor(76, threshold: 95), Theme.warning)  // at 0.8× → warning
         XCTAssertEqual(Theme.usageColor(94, threshold: 95), Theme.warning)  // just under threshold
         XCTAssertEqual(Theme.usageColor(95, threshold: 95), Theme.danger)   // at threshold
@@ -73,8 +74,18 @@ final class ThemeTests: XCTestCase {
     }
 
     func testUsageColorDefaultThresholdIs100() {
-        XCTAssertEqual(Theme.usageColor(50), Theme.accent)
+        XCTAssertEqual(Theme.usageColor(50), Theme.success)
         XCTAssertEqual(Theme.usageColor(85), Theme.warning) // ≥ 80
         XCTAssertEqual(Theme.usageColor(100), Theme.danger)
+    }
+
+    // MARK: color roles are distinct (the §5 "one meaning per hue" contract).
+
+    func testColorRolesAreDistinct() {
+        // active (terracotta) ≠ act-verb (darkened) ≠ armed (sapphire); a healthy
+        // bar must never render in the active hue.
+        XCTAssertNotEqual(Theme.accent, Theme.actVerb)
+        XCTAssertNotEqual(Theme.accent, Theme.sapphire)
+        XCTAssertNotEqual(Theme.usageColor(10, threshold: 95), Theme.accent)
     }
 }

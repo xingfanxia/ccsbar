@@ -299,13 +299,16 @@ private struct AccountTile: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 5) {
+                // FLOOR RULE (§4): names ≥ 13pt, never auto-shrunk — overflow
+                // truncates with tail + .help (the button already carries .help).
                 Text(p.name)
-                    .font(.caption).fontWeight(p.active ? .semibold : .regular)
-                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .font(.body).fontWeight(p.active ? .semibold : .regular)
+                    .lineLimit(1).truncationMode(.tail)
                 UsageBar(
                     pct: p.fiveHourPct,
-                    color: p.active ? Color.white.opacity(0.9) : Theme.usageColor(p.fiveHourPct),
-                    height: 3
+                    color: p.active ? Color.white.opacity(0.9) : Theme.usageColor(p.fiveHourPct, threshold: p.fallback?.threshold ?? 100),
+                    height: 3,
+                    threshold: p.fallback?.threshold
                 )
             }
             .padding(.vertical, 7).padding(.horizontal, 10)
@@ -333,7 +336,7 @@ private struct UsageRow: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label).font(.subheadline).fontWeight(.semibold)
             if let w = window {
-                UsageBar(pct: w.utilizationPct, color: Theme.usageColor(w.utilizationPct, threshold: threshold ?? 100))
+                UsageBar(pct: w.utilizationPct, color: Theme.usageColor(w.utilizationPct, threshold: threshold ?? 100), threshold: threshold)
                 HStack {
                     Text("\(Int(w.utilizationPct.rounded()))% used")
                         .font(.footnote).foregroundStyle(.secondary).monospacedDigit()
