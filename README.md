@@ -61,22 +61,34 @@ actions**:
   of %-bars.
 - the **detail card** for the inspected account — its three windows with reset times,
   a forecast-driven chain-membership line, and **the one switch surface**: a static
-  "Active account" for the current one, a disabled login hint for an expired one, or
-  a **Switch** verb. If the active account has a live Claude session, the first click
-  **arms** ("Confirm — live session on …") and a second within 5s fires; with the
-  daemon down it becomes "Switch via CLI", confirmed by exit code.
+  "Active account" for the current one, a **"Log in again"** browser-reauth verb for an
+  account whose OAuth login dropped (see below), or a **Switch** verb. If the active
+  account has a live Claude session, the first click **arms** ("Confirm — live session
+  on …") and a second within 5s fires; with the daemon down it becomes "Switch via
+  CLI", confirmed by exit code.
 - the **chain rail** — the ordered fallback chain as chips joined by arrows, the armed
   member glowing in sapphire, plus the "when spent" outcome. **Edit** opens the
   inline Configure disclosure.
 - **actions** — Refresh usage, Start at login, Quit (the daemon keeps running).
 
 **Two config surfaces, no Settings window:** a native **right-click context menu** on
-every row (switch / refresh / add–remove / move / "Leave chain at ▸" preset submenu /
-copy name) for fast edits, and the inline **Configure** disclosure as the canonical
-editor (per-account threshold, reorder, add/remove, and the wrap-off setting as a
-plain-language radio). Removing an armed member asks first. Both drive the daemon's
-control socket (`clauthd.sock`), so a running `clauth daemon` is required to edit
-(display works off `status.json` alone).
+every row (switch / refresh / re-authenticate / add–remove / move / "Leave chain at ▸"
+preset submenu / copy name) for fast edits, and the inline **Configure** disclosure as
+the canonical editor (per-account threshold, reorder, add/remove, and the wrap-off
+setting as a plain-language radio). Removing an armed member asks first. Both drive the
+daemon's control socket (`clauthd.sock`), so a running `clauth daemon` is required to
+edit (display works off `status.json` alone).
+
+**Dropped-login recovery (AUTH-3):** OAuth logins sometimes drop silently. The daemon
+flags such an account `auth_broken` in `status.json` the moment a token refresh fails
+with a dead refresh token, and clauthbar surfaces it — a **login-expired** badge on the
+row and, in the detail card, a **"Log in again"** verb that spawns `clauth login <name>`
+(a self-contained browser OAuth sign-in that mints fresh tokens and clears the flag). It
+runs the same whether the daemon is up or down, so a dropped login is recoverable without
+leaving the panel; a top-of-panel banner shows the sign-in is in flight ("finish in your
+browser"). The context menu also offers **Re-authenticate (browser)** for any OAuth
+account proactively, not only a broken one. Third-party api-key accounts have no login to
+renew, so the reauth affordances are hidden for them.
 
 ## Build a real app
 
@@ -111,6 +123,11 @@ Implemented (the CBAR-4 "Preflight" redesign):
   forecast-driven chain line, and a deliberate Switch with the **live-session
   arm-confirm** guard and a **CLI fallback** (confirmed by exit code) when the daemon
   is down.
+- **Dropped-login recovery (AUTH-3)** — an `auth_broken` account (the daemon flags it
+  when a token refresh hits a dead refresh token) gets a **"Log in again"** browser-reauth
+  verb instead of a dead-end hint; it spawns `clauth login <name>` (works daemon-up or
+  -down), guarded so only one sign-in runs at a time, with a global in-flight banner. The
+  context menu offers proactive **Re-authenticate (browser)** for any OAuth account.
 - **Truthfulness engines** (pure, unit-tested): a **forecast** mirror of the daemon's
   `fallback.rs` chain-walk (line-pinned, fixture-tested — never a naive position+1),
   a graded **liveness ladder** (live < 5s / syncing < 15s / dead) on the 1s write
@@ -126,7 +143,7 @@ Implemented (the CBAR-4 "Preflight" redesign):
 - Runs as an accessory app (no Dock icon); packaged as an ad-hoc-signed `.app`.
 - **`--snapshot=<variant>`** renders any canonical state to a PNG headlessly
   (`default` / `inspecting` / `mid-switch` / `daemon-dead` / `config` /
-  `remove-confirm`; a design-review aid, not part of the normal run).
+  `remove-confirm` / `spent` / `reauth`; a design-review aid, not part of the normal run).
 
 Deferred:
 
@@ -141,7 +158,7 @@ Deferred:
 |---|---|
 | `DaemonStatus.swift` | `Codable` mirror of `status.json` (schema 1) + window/auth accessors |
 | `Exhaustion.swift` | pure `ProfileStatus.spentTag` — the one definition of "a window is at its cap" |
-| `DaemonClient.swift` | read `status.json`; switch/refresh/config over the socket (shell fallback) |
+| `DaemonClient.swift` | read `status.json`; switch/refresh/config over the socket (shell fallback); `reauth` spawns `clauth login <name>` |
 | `Theme.swift` | color roles (one meaning per hue) + `UsageBar` (threshold tick) + `usageColor`/`resetHint` |
 | `ForecastEngine.swift` | pure mirror of `fallback.rs::next_target` — the "would switch to X" prediction |
 | `LivenessLadder.swift` | graded freshness (live / syncing / dead) on the 1s write cadence |
@@ -153,7 +170,7 @@ Deferred:
 | `StatusStrip.swift` | the single exception surface (dead banner / switch lifecycle / wrap-off / zero-armed / forecast) |
 | `AccountRow.swift` | one file-order account row + its right-click context menu |
 | `AccountContextMenu.swift` | the row context menu (fast-path chain edits) |
-| `DetailCard.swift` | the inspected account's windows, chain line, and the one switch surface |
+| `DetailCard.swift` | the inspected account's windows, chain line, and the one switch surface (or the `auth_broken` reauth surface) |
 | `ConfigView.swift` | inline `Configure` disclosure (threshold / reorder / add-remove / wrap-off radio) |
 | `AppMain.swift` | `@main` — `MenuBarExtra(.window)` app + `--snapshot` render mode |
 | `Snapshot.swift` | headless `ImageRenderer` panel→PNG harness (design-review aid) |
