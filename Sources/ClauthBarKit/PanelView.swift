@@ -41,6 +41,13 @@ struct PanelView: View {
         if let prompt = model.pendingRemovalPrompt {
             removalConfirmBanner(prompt)
         }
+        // A browser reauth (AUTH-3) in flight — a GLOBAL indicator so the sign-in is
+        // visible no matter which detail card is showing (the card's own in-flight
+        // state only exists for a broken account; a proactive reauth of a healthy one
+        // would otherwise run with no on-screen feedback).
+        if let name = model.reauthInFlight {
+            reauthBanner(name)
+        }
         StatusStrip(model: model)
         Divider().padding(.horizontal, 12)
         accounts(status, dead: dead)
@@ -176,6 +183,21 @@ struct PanelView: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Theme.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.bottom, 6)
+    }
+
+    // MARK: - Reauth-in-flight banner (AUTH-3)
+
+    private func reauthBanner(_ name: String) -> some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text("Signing in to \(name) — finish in your browser…")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Theme.sapphire.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 12).padding(.bottom, 6)
     }
 

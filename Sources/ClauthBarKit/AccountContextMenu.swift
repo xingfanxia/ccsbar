@@ -22,7 +22,9 @@ struct AccountContextMenu: View {
             // Honest about the CLI-fallback path when the daemon is down (matches
             // DetailCard) — a switch still works via `clauth <name>`, but auto-switch
             // stays inactive until the daemon restarts.
-            let switchTitle = p.authBroken ? "Login expired — clauth login \(p.name)"
+            // Broken accounts can't be a switch target; the "Log in again" item below
+            // owns the recovery CTA, so this just states the state (no dead-end CLI hint).
+            let switchTitle = p.authBroken ? "Login expired"
                 : model.daemonReachable ? "Switch to \(p.name)"
                 : "Switch to \(p.name) via CLI (daemon offline)"
             Button(switchTitle) {
@@ -37,6 +39,19 @@ struct AccountContextMenu: View {
         }
         Button("Refresh \(p.name)") { model.refresh(p.name) }
             .disabled(!model.daemonReachable)
+
+        // Browser reauth (AUTH-3) — for OAuth (anthropic) accounts only; third-party
+        // api-key profiles have no login to renew. Offered generally, not just when
+        // broken, so a flaky login can be refreshed proactively. The in-flight state
+        // shows in the panel-top banner (global), so this is visible even when the
+        // inspected card isn't the broken-account reauth surface.
+        if p.provider == "anthropic" {
+            Button(p.authBroken ? "Log in again (browser)" : "Re-authenticate (browser)") {
+                model.inspect(p.name)
+                model.reauth(p.name)
+            }
+            .disabled(model.reauthInFlight != nil)
+        }
 
         Divider()
 

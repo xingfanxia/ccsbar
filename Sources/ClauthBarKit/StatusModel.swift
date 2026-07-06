@@ -44,6 +44,9 @@ final class StatusModel: ObservableObject {
     /// the disclosure shows an honest "Applying…" while > 0. Cleared as each
     /// command's reply lands (the settle ladder then updates the view).
     @Published private(set) var configInFlight = 0
+    /// The account whose browser reauth (`clauth login`) is in flight, or nil. Drives
+    /// the "Opening browser to sign in…" state and blocks a second concurrent login.
+    @Published private(set) var reauthInFlight: String?
 
     /// A switch is in flight (arming or pending) — tiles disable to block a second
     /// concurrent switch (M5/TECH-11), now derived from the phase.
@@ -511,6 +514,50 @@ final class StatusModel: ObservableObject {
     func refresh() { run({ DaemonClient.refresh(nil) }, shimmer: false) }
     /// Force a usage re-fetch for one account (context-menu "Refresh <name>", §7).
     func refresh(_ name: String) { run({ DaemonClient.refresh(name) }, shimmer: false) }
+
+    /// Re-authenticate a dropped account (AUTH-3) through the self-contained browser
+    /// OAuth flow. Spawns `clauth login <name>` OFF the main actor — it blocks until
+    /// the browser sign-in finishes — while the detail card shows an in-flight state.
+    /// On success the CLI cleared `auth_broken` and wrote fresh tokens, so we nudge a
+    /// refresh to surface it without waiting for the next poll. Only one login runs at
+    /// a time. `run` is injected so the outcome routing is testable without spawning.
+    func reauth(
+        _ name: String,
+        run: @escaping @Sendable (String) async -> CommandOutcome = { await DaemonClient.reauth($0) }
+    ) {
+        guard reauthInFlight == nil else { return } // one browser login at a time
+        reauthInFlight = name
+        lastCommandError = nil
+        errorClearTask?.cancel()
+        Task { [weak self] in
+            let outcome = await run(name)
+            guard let self else { return }
+            self.reauthInFlight = nil
+            if let message = Self.reauthFailureMessage(outcome, name: name) {
+                self.showError(message)
+            } else if self.daemonReachable {
+                // The CLI already cleared auth_broken + wrote fresh tokens; nudge a
+                // refresh so status.json reflects it promptly. SKIP when the daemon is
+                // down — the login still succeeded, but a socket refresh would surface a
+                // false "daemon unreachable" error; the next daemon tick picks it up.
+                self.refresh(name)
+            }
+        }
+    }
+
+    /// The user-facing error for a reauth outcome, or nil on success. Pure so the copy
+    /// (and the "run it in a terminal" fallback hint) is unit-tested without spawning
+    /// `clauth login`.
+    nonisolated static func reauthFailureMessage(_ outcome: CommandOutcome, name: String) -> String? {
+        switch outcome {
+        case .ok:
+            return nil
+        case .daemonError(_, let message):
+            return "Sign-in didn't complete (\(message)). Try again, or run `clauth login \(name)` in a terminal."
+        case .unreachable:
+            return "Couldn't find the clauth binary. Run `clauth login \(name)` in a terminal."
+        }
+    }
 
     // MARK: - Chain removal with the armed-member confirm (CBAR4-5 §7)
 

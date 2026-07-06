@@ -94,8 +94,11 @@ struct DetailCard: View {
     @ViewBuilder private var switchSurface: some View {
         if p.active {
             activeState
-        } else if p.authBroken {
-            disabledVerb("Login expired — clauth login \(p.name)")
+        } else if p.authBroken && p.provider == "anthropic" {
+            // Only OAuth accounts have a browser login to renew — the daemon never
+            // marks a third-party api-key profile auth_broken, but guard anyway so the
+            // reauth surface and the context-menu item agree on who can reauth.
+            reauthSurface
         } else {
             // One button for both the live and offline paths so the arm-confirm cycle
             // works in BOTH: `switchTo` applies the live-session guard regardless of
@@ -124,6 +127,42 @@ struct DetailCard: View {
                 Text("Pick another account above to switch to it.")
                     .font(.caption).foregroundStyle(.tertiary)
             }
+        }
+    }
+
+    /// AUTH-3: the account's OAuth login dropped (`auth_broken`). Instead of a
+    /// dead-end "run clauth login" hint, offer a one-click browser reauth — it
+    /// re-mints tokens and clears the flag (works daemon-up or -down). Shows an
+    /// in-flight state while the browser sign-in runs.
+    private var reauthSurface: some View {
+        let inFlight = model.reauthInFlight == p.name
+        return VStack(spacing: 5) {
+            HStack(spacing: 5) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .font(.system(size: 11)).foregroundStyle(Theme.danger)
+                Text("This account's login expired — re-authenticate to use it again.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+            }
+            Button {
+                model.reauth(p.name)
+            } label: {
+                HStack {
+                    Spacer()
+                    if inFlight {
+                        Text("Opening browser to sign in…")
+                    } else {
+                        Label("Log in again", systemImage: "person.crop.circle.badge.plus")
+                    }
+                    Spacer()
+                }
+                .font(.body).fontWeight(.semibold).frame(height: 28).foregroundStyle(.white)
+                .background(Theme.actVerb.opacity(inFlight ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .disabled(model.reauthInFlight != nil)
+            .help("Re-authenticate \(p.name) with a browser sign-in (runs `clauth login \(p.name)`).")
         }
     }
 

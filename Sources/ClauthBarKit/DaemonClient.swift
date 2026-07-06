@@ -329,6 +329,38 @@ enum DaemonClient {
         return nil
     }
 
+    /// Re-authenticate `name` via the self-contained browser OAuth flow
+    /// (`clauth login <name>`): opens the browser, binds a loopback listener, PKCE.
+    /// Awaits the process through its termination handler — no parked thread while the
+    /// (potentially long) browser sign-in runs. On exit 0 the CLI has written fresh
+    /// tokens and cleared the account's `auth_broken` flag; the daemon reflects that on
+    /// its next status.json write. Works with the daemon up OR down — a pure CLI login,
+    /// no socket needed. The caller's in-flight window is bounded by clauth's own
+    /// `LOGIN_TIMEOUT_SECS` (180s in `oauth_login.rs`), so no client-side timeout is
+    /// needed. Exit 0 → `.ok`; non-zero / timed-out → `.daemonError`; no binary → `.unreachable`.
+    static func reauth(_ name: String) async -> CommandOutcome {
+        guard let bin = clauthBinary() else { return .unreachable }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: bin)
+        proc.arguments = ["login", name]
+        return await withCheckedContinuation { (cont: CheckedContinuation<CommandOutcome, Never>) in
+            proc.terminationHandler = { p in
+                let status = p.terminationStatus
+                cont.resume(returning: status == 0
+                    ? .ok
+                    : .daemonError(code: "cli_failed", message: "clauth login exited \(status)"))
+            }
+            do {
+                try proc.run()
+            } catch {
+                // Never started → the termination handler won't fire; resume here once.
+                proc.terminationHandler = nil
+                cont.resume(returning: .daemonError(
+                    code: "cli_failed", message: "could not run clauth: \(error.localizedDescription)"))
+            }
+        }
+    }
+
     /// Run `clauth <args>` and report its outcome by exit status (TECH-11). Blocking
     /// (waits for exit) — only reached from the off-main-actor command path, and a
     /// switch's Keychain write is a couple seconds at most. Exit 0 → `.ok`; non-zero
