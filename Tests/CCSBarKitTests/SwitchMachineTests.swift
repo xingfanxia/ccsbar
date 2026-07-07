@@ -38,8 +38,8 @@ final class SwitchMachineTests: XCTestCase {
 
     func testReArmToADifferentTarget() {
         XCTAssertEqual(
-            reduce(.arming(target: "cl-ax"), .requestSwitch(target: "zai", currentHasLiveSession: true)),
-            .arming(target: "zai")
+            reduce(.arming(target: "cl-ax"), .requestSwitch(target: "alt", currentHasLiveSession: true)),
+            .arming(target: "alt")
         )
     }
 
@@ -93,7 +93,7 @@ final class SwitchMachineTests: XCTestCase {
     func testRequestIgnoredWhilePending() {
         // A double-tap mid-switch must not interrupt the in-flight switch.
         XCTAssertEqual(
-            reduce(.pending(target: "cl-ax"), .requestSwitch(target: "zai", currentHasLiveSession: false)),
+            reduce(.pending(target: "cl-ax"), .requestSwitch(target: "alt", currentHasLiveSession: false)),
             .pending(target: "cl-ax")
         )
     }

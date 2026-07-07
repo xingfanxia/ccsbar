@@ -217,10 +217,7 @@ struct DetailCard: View {
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
     }
 
-    private var providerLabel: String {
-        switch p.provider {
-        case "openai": return "Z.AI"
-        default: return p.provider
-        }
-    }
+    // clauth emits the provider's own display name (`anthropic` for OAuth, else a
+    // recognised third-party provider's name), so we surface it verbatim.
+    private var providerLabel: String { p.provider }
 }

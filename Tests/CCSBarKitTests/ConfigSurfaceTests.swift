@@ -69,10 +69,10 @@ final class ConfigSurfaceTests: XCTestCase {
         let s = try status("""
         {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"xfx2",
          "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
-         "profiles":[{"name":"zai","active":false},{"name":"xfx2","active":true},{"name":"cl-ax","active":false}]}
+         "profiles":[{"name":"alt","active":false},{"name":"xfx2","active":true},{"name":"cl-ax","active":false}]}
         """)
         XCTAssertEqual(ChainEdit.chainOrdered(s.profiles, chain: s.fallbackChain).map(\.name),
-                       ["zai", "xfx2", "cl-ax"])
+                       ["alt", "xfx2", "cl-ax"])
     }
 
     // MARK: - Removal consequence (the armed-member gate)
@@ -86,15 +86,15 @@ final class ConfigSurfaceTests: XCTestCase {
          "profiles":[
            {"name":"xfx","active":true,"fallback":{"position":1,"threshold":95,"armed":true}},
            {"name":"cl-ax","active":false,"fallback":{"position":2,"threshold":100,"armed":false}},
-           {"name":"zai","active":false}
+           {"name":"alt","active":false}
          ]}
         """)
     }
 
     func testRemovingNonMemberIsFree() throws {
-        // zai has no fallback block → not in the chain → remove freely (nil).
+        // alt has no fallback block → not in the chain → remove freely (nil).
         let s = try chain("\"xfx\",\"cl-ax\"")
-        XCTAssertNil(ChainEdit.removalConsequence(of: "zai", in: s))
+        XCTAssertNil(ChainEdit.removalConsequence(of: "alt", in: s))
     }
 
     func testRemovingUnarmedMemberIsFree() throws {

@@ -90,11 +90,11 @@ final class PanelLogicTests: XCTestCase {
 
     @MainActor
     func testInspectedFallsBackToChainHeadWhenActiveNull() throws {
-        // profiles list starts with zai, but the chain head is xfx → inspect xfx.
+        // profiles list starts with alt, but the chain head is xfx → inspect xfx.
         let s = try status("""
         {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":null,
          "wrap_off":true,"refresh_interval_ms":90000,"fallback_chain":["xfx","cl-ax"],
-         "profiles":[{"name":"zai","active":false},{"name":"xfx","active":false},{"name":"cl-ax","active":false}]}
+         "profiles":[{"name":"alt","active":false},{"name":"xfx","active":false},{"name":"cl-ax","active":false}]}
         """)
         XCTAssertEqual(StatusModel(preview: s).inspected?.name, "xfx")
     }

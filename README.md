@@ -15,17 +15,22 @@ ccsbar is a thin UI over clauth's daemon: it reads `~/.clauth/status.json`
 owns no credentials and runs no network of its own.
 
 <p align="center">
-  <img src="docs/media/panel-healthy-3x.png" width="340" alt="ccsbar panel — forecast strip, usage bars, chain rail" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/panel-healthy-dark.png" />
+    <img src="docs/media/panel-healthy-light.png" width="340" alt="ccsbar panel — forecast strip, usage bars, chain rail" />
+  </picture>
 </p>
 
-The panel, top to bottom: the **forecast strip** ("Watching work — would switch
-to personal at 95%"), the **account list** with live 5h / 7d / Fable bars, the
-**detail card** for the inspected account, and the **chain rail** showing the
-ordered fallback. Three states it has a loud, fixed home for:
+The panel, top to bottom: the **forecast strip** ("Watching account-1 — would
+switch to account-2 at 95%"), the **account list** with live 5h / 7d / Fable
+bars, the **detail card** for the inspected account, and the **chain rail**
+showing the ordered fallback. Three states it has a loud, fixed home for —
+each shown in both dark and light:
 
-| Healthy | Login dropped | Window spent |
-|---|---|---|
-| ![healthy](docs/media/panel-healthy.png) | ![reauth](docs/media/panel-reauth.png) | ![spent](docs/media/panel-spent.png) |
+| | Healthy | Login dropped | Window spent |
+|---|---|---|---|
+| **Dark** | ![healthy dark](docs/media/panel-healthy-dark.png) | ![reauth dark](docs/media/panel-reauth-dark.png) | ![spent dark](docs/media/panel-spent-dark.png) |
+| **Light** | ![healthy light](docs/media/panel-healthy-light.png) | ![reauth light](docs/media/panel-reauth-light.png) | ![spent light](docs/media/panel-spent-light.png) |
 
 ### What ccsbar is a window into
 
@@ -83,7 +88,7 @@ actions**:
   a dead-daemon banner (with a one-click **Start daemon**) > the switch lifecycle
   (arm / switching… / switched / failed) > a wrap-off "all off, resumes when a
   window resets" card > a zero-armed "auto-switch is idle" warning > otherwise the
-  **forecast sentence** ("Watching work — would switch to personal at 95% · now 62%"),
+  **forecast sentence** ("Watching account-1 — would switch to account-2 at 95% · now 42%"),
   the daemon's own published chain-walk forecast.
 - the **account list** — one row per account in **file order (rows never reorder)**;
   single click **inspects**. Each row leads with a full-width 5h bar carrying a tick

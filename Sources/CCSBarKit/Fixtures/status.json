@@ -1,16 +1,17 @@
 {
   "schema": 1,
   "generated_at": "2026-07-04T05:00:00+00:00",
-  "active_profile": "work",
+  "active_profile": "account-1",
   "wrap_off": false,
   "refresh_interval_ms": 90000,
   "fallback_chain": [
-    "work",
-    "personal"
+    "account-1",
+    "account-2",
+    "account-3"
   ],
   "profiles": [
     {
-      "name": "work",
+      "name": "account-1",
       "active": true,
       "provider": "anthropic",
       "base_url": null,
@@ -47,7 +48,7 @@
       "third_party": null
     },
     {
-      "name": "personal",
+      "name": "account-2",
       "active": false,
       "provider": "anthropic",
       "base_url": null,
@@ -62,7 +63,7 @@
         "position": 2,
         "threshold": 95,
         "armed": false,
-        "last_resort": true
+        "last_resort": false
       },
       "windows": [
         {
@@ -84,34 +85,53 @@
       "third_party": null
     },
     {
-      "name": "zai",
+      "name": "account-3",
       "active": false,
-      "provider": "z.ai",
-      "base_url": "https://api.z.ai",
-      "tier": null,
+      "provider": "anthropic",
+      "base_url": null,
+      "tier": "Max 20x",
       "has_live_session": false,
       "fetch_status": "Fresh",
       "fetched_at": null,
       "next_refresh_at": null,
       "auto_start": false,
       "bell_threshold": null,
-      "fallback": null,
-      "windows": [],
-      "third_party": {
-        "available": true
-      }
+      "fallback": {
+        "position": 3,
+        "threshold": 95,
+        "armed": false,
+        "last_resort": true
+      },
+      "windows": [
+        {
+          "label": "5h",
+          "utilization_pct": 18,
+          "resets_at": "2026-07-04T19:00:00.100000+00:00"
+        },
+        {
+          "label": "7d",
+          "utilization_pct": 24,
+          "resets_at": null
+        },
+        {
+          "label": "7d fable",
+          "utilization_pct": 0,
+          "resets_at": null
+        }
+      ],
+      "third_party": null
     }
   ],
   "clauth_version": "0.7.4",
   "burn_aware": false,
   "forecast": {
     "action": "switch",
-    "to": "personal"
+    "to": "account-2"
   },
   "pending_switch": null,
   "last_switch": {
-    "from": "personal",
-    "to": "work",
+    "from": "account-2",
+    "to": "account-1",
     "at": "2026-07-04T04:58:30+00:00",
     "trigger": "scheduler"
   },

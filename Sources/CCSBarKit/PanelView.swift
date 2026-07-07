@@ -247,12 +247,18 @@ private struct ChainStrip: View {
     let status: DaemonStatus
 
     var body: some View {
-        HStack(spacing: 6) {
+        // Wrap onto another line for 3+ member chains — a plain HStack overflows the
+        // fixed-width panel and makes each chip wrap its OWN text ("ac-count-1"). Each
+        // item bundles its leading arrow so a wrapped chip carries its "→" with it.
+        FlowLayout(spacing: 6, lineSpacing: 6) {
             ForEach(Array(status.fallbackChain.enumerated()), id: \.offset) { i, name in
-                if i > 0 {
-                    Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                HStack(spacing: 6) {
+                    if i > 0 {
+                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    chip(for: name)
                 }
-                chip(for: name)
+                .fixedSize()
             }
         }
     }
@@ -262,7 +268,7 @@ private struct ChainStrip: View {
         let armed = fb?.armed ?? false
         return HStack(spacing: 4) {
             if armed { Image(systemName: "bolt.fill").font(.system(size: 9)) }
-            Text(name).font(.callout).fontWeight(armed ? .semibold : .regular)
+            Text(name).font(.callout).fontWeight(armed ? .semibold : .regular).lineLimit(1)
             Text("@\(Int(fb?.threshold ?? 95))")
                 .font(.system(size: 10)).foregroundStyle(.secondary).monospacedDigit()
         }

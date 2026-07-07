@@ -12,18 +12,27 @@ public func runCCSBar() {
         Snapshot.render(to: args[i + 1])
         return
     }
-    // `--snapshot=<variant>` renders a liveness variant (healthy|stale|schema2)
-    // to a temp PNG and prints the resolved state (TECH-4 verification harness).
-    // An optional `@<scale>` suffix (e.g. `--snapshot=healthy@3`) renders at a
-    // higher scale for crisp hero media; default scale is 2 (340pt → 680px).
+    // `--snapshot=<variant>[:<light|dark>][@<scale>]` renders a liveness variant to a
+    // temp PNG and prints the resolved state (TECH-4 verification harness). The
+    // optional `:light`/`:dark` picks the appearance (default dark); `@<scale>`
+    // renders at a higher scale for crisp media (default 2 → 340pt/680px).
+    // e.g. `--snapshot=healthy:light`, `--snapshot=spent:dark@3`.
     if let arg = args.first(where: { $0.hasPrefix("--snapshot=") }) {
-        let raw = String(arg.dropFirst("--snapshot=".count))
-        let parts = raw.split(separator: "@", maxSplits: 1)
-        let variant = String(parts.first ?? "")
-        let scale: CGFloat = parts.count > 1 ? (Double(parts[1]).map { CGFloat($0) } ?? 2) : 2
-        let suffix = scale == 2 ? "" : "@\(Int(scale))x"
-        let path = NSTemporaryDirectory() + "ccsbar-snapshot-\(variant)\(suffix).png"
-        Snapshot.render(variant: variant, to: path, scale: scale)
+        var raw = String(arg.dropFirst("--snapshot=".count))
+        var scale: CGFloat = 2
+        if let at = raw.firstIndex(of: "@") {
+            scale = Double(raw[raw.index(after: at)...]).map { CGFloat($0) } ?? 2
+            raw = String(raw[..<at])
+        }
+        var appearance = Snapshot.Appearance.dark
+        if let colon = raw.firstIndex(of: ":") {
+            appearance = Snapshot.Appearance(rawValue: String(raw[raw.index(after: colon)...])) ?? .dark
+            raw = String(raw[..<colon])
+        }
+        let variant = raw
+        let scaleSuffix = scale == 2 ? "" : "@\(Int(scale))x"
+        let path = NSTemporaryDirectory() + "ccsbar-snapshot-\(variant)-\(appearance.rawValue)\(scaleSuffix).png"
+        Snapshot.render(variant: variant, to: path, scale: scale, appearance: appearance)
         return
     }
     // Real app path only (the --snapshot render above is expected to run alongside

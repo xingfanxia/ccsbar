@@ -75,8 +75,8 @@ final class ExhaustionTests: XCTestCase {
     }
 
     func testThirdPartyNeverReadsAsSpent() throws {
-        // z.ai / third-party accounts have no %-windows — availability, not usage.
-        let p = try profile(fiveH: 100, sevenD: 100, provider: "z.ai")
+        // Third-party (api-key) accounts have no %-windows — availability, not usage.
+        let p = try profile(fiveH: 100, sevenD: 100, provider: "custom")
         // The provider gate lives ONLY in spentTag → no pill for a third-party account…
         XCTAssertNil(p.spentTag)
         // …even though the low-level, provider-agnostic window boolean still sees 100%.

@@ -192,12 +192,9 @@ struct AccountRow: View {
 
     // MARK: - Helpers
 
-    private var providerLabel: String {
-        switch p.provider {
-        case "openai": return "Z.AI"
-        default: return p.provider
-        }
-    }
+    // clauth emits the provider's own display name (`anthropic` for OAuth, else a
+    // recognised third-party provider's name), so we surface it verbatim.
+    private var providerLabel: String { p.provider }
 
     private func stamp(_ iso: String?) -> String {
         if let frozenStamp { return frozenStamp }

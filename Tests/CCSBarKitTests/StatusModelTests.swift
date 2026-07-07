@@ -52,23 +52,23 @@ final class StatusModelTests: XCTestCase {
     @MainActor
     func testPublishedForecastWinsOverMirror() throws {
         // Both members have headroom, so the local mirror would pick the first one
-        // after the active ("cl-ax"). The published forecast disagrees ("zai") — the
+        // after the active ("cl-ax"). The published forecast disagrees ("alt") — the
         // resolver must honour the daemon, not the mirror.
         let status = try decode(#"""
         {"schema":1,"generated_at":"2026-07-04T05:00:00+00:00","active_profile":"xfx",
          "wrap_off":false,"refresh_interval_ms":90000,
-         "forecast":{"action":"switch","to":"zai"},
-         "fallback_chain":["xfx","cl-ax","zai"],
+         "forecast":{"action":"switch","to":"alt"},
+         "fallback_chain":["xfx","cl-ax","alt"],
          "profiles":[
            {"name":"xfx","active":true,"fallback":{"position":1,"threshold":95,"armed":true},
             "windows":[{"label":"5h","utilization_pct":30}]},
            {"name":"cl-ax","active":false,"fallback":{"position":2,"threshold":95,"armed":false},
             "windows":[{"label":"5h","utilization_pct":10}]},
-           {"name":"zai","active":false,"fallback":{"position":3,"threshold":95,"armed":false},
+           {"name":"alt","active":false,"fallback":{"position":3,"threshold":95,"armed":false},
             "windows":[{"label":"5h","utilization_pct":10}]}]}
         """#)
         let model = StatusModel(preview: status)
-        XCTAssertEqual(model.forecast, .switchTo("zai"))
+        XCTAssertEqual(model.forecast, .switchTo("alt"))
     }
 
     @MainActor
@@ -78,13 +78,13 @@ final class StatusModelTests: XCTestCase {
         let status = try decode(#"""
         {"schema":1,"generated_at":"2026-07-04T05:00:00+00:00","active_profile":"xfx",
          "wrap_off":false,"refresh_interval_ms":90000,
-         "fallback_chain":["xfx","cl-ax","zai"],
+         "fallback_chain":["xfx","cl-ax","alt"],
          "profiles":[
            {"name":"xfx","active":true,"fallback":{"position":1,"threshold":95,"armed":true},
             "windows":[{"label":"5h","utilization_pct":30}]},
            {"name":"cl-ax","active":false,"fallback":{"position":2,"threshold":95,"armed":false},
             "windows":[{"label":"5h","utilization_pct":10}]},
-           {"name":"zai","active":false,"fallback":{"position":3,"threshold":95,"armed":false},
+           {"name":"alt","active":false,"fallback":{"position":3,"threshold":95,"armed":false},
             "windows":[{"label":"5h","utilization_pct":10}]}]}
         """#)
         let model = StatusModel(preview: status)

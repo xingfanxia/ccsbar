@@ -6,14 +6,16 @@ import Foundation
 /// never drift, and a Rust-side shape change is caught by the test before it
 /// blanks the panel. Regenerate from a live daemon with Scripts/regen-fixture.sh.
 ///
-/// PROFILES are neutral DEMO names for the public README hero media: `work`
-/// (active, watching) + `personal` (fallback chain member, `last_resort` so the
-/// flag badge shows) + `zai` (a third-party z.ai account). `zai` stays in the
-/// fixture purely for third-party-decode contract coverage; it is FILTERED OUT of
-/// the rendered media by `Snapshot.demoFiltered` (no third-party brand in hero
-/// shots). Keeping one fixture for both uses preserves the "fixture = contract"
-/// invariant — the alternative (a separate demo.json) could silently drift from
-/// the real daemon shape without the contract test catching it.
+/// PROFILES are neutral DEMO names for the public README hero media: three
+/// anthropic accounts `account-1` (active, watching, chain #1) + `account-2`
+/// (chain #2) + `account-3` (chain #3, `last_resort` so the flag badge shows).
+/// No third-party account lives here on purpose: a real third-party row only
+/// exists for a clauth-recognised provider whose display name is a brand, which
+/// must not appear in public media. Third-party-decode contract coverage is kept
+/// separately as a neutral inline sample in `DaemonStatusTests`. Keeping one
+/// bundled fixture for both the render and the decode contract preserves the
+/// "fixture = contract" invariant — the alternative (a separate demo.json) could
+/// silently drift from the real daemon shape without the contract test catching it.
 ///
 /// INVARIANT — this is DEV-ONLY. It is reached solely from the `--snapshot` path
 /// (dev aid) and the tests, NEVER from the normal app run (which reads

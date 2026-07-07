@@ -128,13 +128,16 @@ final class MenuBarLabelLadderTests: XCTestCase {
     }
 
     func testThirdPartyActiveShowsDotNotPercent() {
-        let s = status(active: "zai", chain: ["zai"], profiles: [
-            profile("zai", active: true, threshold: nil, provider: "openai", available: true),
+        // Any non-anthropic provider is third-party — the ladder shows an availability
+        // dot + name, never a %. `"custom"` is a neutral stand-in for a recognised
+        // third-party provider's display name (which clauth emits verbatim).
+        let s = status(active: "proxy", chain: ["proxy"], profiles: [
+            profile("proxy", active: true, threshold: nil, provider: "custom", available: true),
         ])
         let out = spec(s)
         XCTAssertEqual(out.availabilityDot, true)
         XCTAssertFalse(out.text.contains("%"))
-        XCTAssertEqual(out.text, "zai")
+        XCTAssertEqual(out.text, "proxy")
     }
 
     // MARK: collision precedence (highest rung wins).

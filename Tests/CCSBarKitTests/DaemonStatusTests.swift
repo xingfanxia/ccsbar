@@ -18,28 +18,21 @@ final class DaemonStatusTests: XCTestCase {
         let data = try XCTUnwrap(Fixtures.statusJSONData(), "fixture resource must be bundled")
         let status = try JSONDecoder().decode(DaemonStatus.self, from: data)
         XCTAssertEqual(status.schema, 1)
-        // Neutral demo profiles for public README media (see Fixtures header): work
-        // (active) + personal (last-resort fallback) + zai (third-party, kept for
-        // decode coverage, filtered out of rendered media).
-        XCTAssertEqual(status.activeProfile, "work")
-        XCTAssertEqual(status.fallbackChain, ["work", "personal"])
+        // Neutral demo profiles for public README media (see Fixtures header): three
+        // anthropic accounts, account-3 marked last_resort so the flag badge shows.
+        XCTAssertEqual(status.activeProfile, "account-1")
+        XCTAssertEqual(status.fallbackChain, ["account-1", "account-2", "account-3"])
         XCTAssertEqual(status.profiles.count, 3)
-        // The third-party profile carries the availability flag (not a balance).
-        let zai = try XCTUnwrap(status.profiles.first { $0.name == "zai" })
-        XCTAssertEqual(zai.thirdParty?.available, true)
-        XCTAssertEqual(zai.provider, "z.ai")
-        // The fixture now represents current daemon output (clauth 81c00a2): the
-        // published forecast, burn_aware flag, and per-profile last_resort mark.
+        XCTAssertTrue(status.profiles.allSatisfy { $0.provider == "anthropic" },
+                      "public media fixture stays brand-free (all anthropic)")
+        // Current daemon output (clauth 81c00a2+): published forecast + burn_aware.
         XCTAssertEqual(status.forecast?.action, "switch")
-        XCTAssertEqual(status.forecast?.to, "personal")
-        XCTAssertEqual(status.forecast?.outcome, .switchTo("personal"))
+        XCTAssertEqual(status.forecast?.to, "account-2")
+        XCTAssertEqual(status.forecast?.outcome, .switchTo("account-2"))
         XCTAssertEqual(status.burnAware, false)
-        let work = try XCTUnwrap(status.profiles.first { $0.name == "work" })
-        XCTAssertEqual(work.fallback?.lastResort, false)
-        // personal is the chain's tail marked last resort — the canonical setup, and
-        // it exercises the flag badge + toggle "on" state in the config snapshot.
-        let personal = try XCTUnwrap(status.profiles.first { $0.name == "personal" })
-        XCTAssertEqual(personal.fallback?.lastResort, true)
+        XCTAssertEqual(status.profiles.first { $0.name == "account-1" }?.fallback?.lastResort, false)
+        // account-3 is the chain tail marked last resort — exercises the flag badge.
+        XCTAssertEqual(status.profiles.first { $0.name == "account-3" }?.fallback?.lastResort, true)
     }
 
     // MARK: Additive forecast fields (clauth 81c00a2) — present AND absent decode.
@@ -128,14 +121,23 @@ final class DaemonStatusTests: XCTestCase {
         XCTAssertFalse(p.autoStart)
     }
 
-    func testNullTierAndMissingWindowsTolerated() throws {
+    // MARK: third-party (api-key) decode coverage — kept inline since the bundled
+    // fixture stays all-anthropic (public media is brand-free). `"custom"` is a
+    // neutral stand-in for a recognised third-party provider's display name, which
+    // clauth emits verbatim; the SHAPE (base_url + `third_party.available` + null
+    // tier + no fallback/windows) is the faithful part.
+
+    func testThirdPartyProfileDecodes() throws {
         let status = try decode(#"""
-        {"schema":1,"generated_at":"2026-07-04T05:00:00+00:00","active_profile":"a",
+        {"schema":1,"generated_at":"2026-07-04T05:00:00+00:00","active_profile":null,
          "wrap_off":false,"refresh_interval_ms":90000,
-         "profiles":[{"name":"a","active":false,"provider":"z.ai","tier":null,
+         "profiles":[{"name":"proxy","active":false,"provider":"custom","tier":null,
+                      "base_url":"https://llm.internal.example",
                       "third_party":{"available":false}}]}
         """#)
         let p = try XCTUnwrap(status.profiles.first)
+        XCTAssertEqual(p.provider, "custom")
+        XCTAssertEqual(p.baseUrl, "https://llm.internal.example")
         XCTAssertNil(p.tier)
         XCTAssertEqual(p.thirdParty?.available, false)
     }

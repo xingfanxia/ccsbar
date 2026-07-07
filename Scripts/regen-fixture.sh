@@ -5,7 +5,7 @@
 # so it must stay a faithful sample of what `clauth status --json` emits.
 #
 # NOTE: this captures YOUR real profile names/usage. Sanitize before committing if
-# they're sensitive — the checked-in default uses fake names (xfx/cl-ax/zai).
+# they're sensitive — the checked-in default uses neutral names (account-1/2/3).
 #
 # Usage: Scripts/regen-fixture.sh
 set -euo pipefail

@@ -49,19 +49,19 @@ final class ForecastEngineTests: XCTestCase {
     // MARK: Pass 1 — headroom.
 
     func testNormalChainPicksFirstHeadroomMember() {
-        let s = status(active: "xfx", chain: ["xfx", "cl-ax", "zai"], profiles: [
-            profile("xfx", util: 30), profile("cl-ax", util: 20), profile("zai", util: 10),
+        let s = status(active: "xfx", chain: ["xfx", "cl-ax", "alt"], profiles: [
+            profile("xfx", util: 30), profile("cl-ax", util: 20), profile("alt", util: 10),
         ])
         XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("cl-ax"))
     }
 
     func testSkipsExhaustedUntilHeadroom() {
-        let s = status(active: "xfx", chain: ["xfx", "cl-ax", "zai"], profiles: [
+        let s = status(active: "xfx", chain: ["xfx", "cl-ax", "alt"], profiles: [
             profile("xfx", util: 50),
             profile("cl-ax", threshold: 95, util: 99), // exhausted (99 ≥ 95, live)
-            profile("zai", util: 10),                  // headroom
+            profile("alt", util: 10),                  // headroom
         ])
-        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("zai"))
+        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("alt"))
     }
 
     func testLapsedWindowIsHeadroomDespiteHighUtil() {
@@ -90,10 +90,10 @@ final class ForecastEngineTests: XCTestCase {
 
     func testUnresolvableMemberSkipped() {
         // A stale chain entry with no matching profile is skipped, not crashed on.
-        let s = status(active: "xfx", chain: ["xfx", "ghost", "zai"], profiles: [
-            profile("xfx", util: 50), profile("zai", util: 10), // no "ghost"
+        let s = status(active: "xfx", chain: ["xfx", "ghost", "alt"], profiles: [
+            profile("xfx", util: 50), profile("alt", util: 10), // no "ghost"
         ])
-        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("zai"))
+        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("alt"))
     }
 
     func testAuthBrokenSkippedInSinkPassToo() {
@@ -109,12 +109,12 @@ final class ForecastEngineTests: XCTestCase {
     }
 
     func testAuthBrokenMemberSkipped() {
-        let s = status(active: "xfx", chain: ["xfx", "cl-ax", "zai"], profiles: [
+        let s = status(active: "xfx", chain: ["xfx", "cl-ax", "alt"], profiles: [
             profile("xfx", util: 50),
             profile("cl-ax", util: 10, authBroken: true), // headroom but revoked → skip
-            profile("zai", util: 20),
+            profile("alt", util: 20),
         ])
-        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("zai"))
+        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("alt"))
     }
 
     // MARK: Pass 2 — the exclusive last-resort mark.
@@ -181,8 +181,8 @@ final class ForecastEngineTests: XCTestCase {
     // MARK: degenerate inputs.
 
     func testActiveNotInChainIsNone() {
-        let s = status(active: "xfx", chain: ["cl-ax", "zai"], profiles: [
-            profile("cl-ax", util: 10), profile("zai", util: 10),
+        let s = status(active: "xfx", chain: ["cl-ax", "alt"], profiles: [
+            profile("cl-ax", util: 10), profile("alt", util: 10),
         ])
         XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .none)
     }
