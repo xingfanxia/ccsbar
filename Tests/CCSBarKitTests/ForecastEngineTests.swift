@@ -192,3 +192,48 @@ final class ForecastEngineTests: XCTestCase {
         XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .none)
     }
 }
+
+// MARK: - weekly hard block parity (fallback.rs WEEKLY_BLOCK_PCT)
+
+extension ForecastEngineTests {
+    /// Profile fragment with an overall 7d window and NO 5h window at all —
+    /// the live specimen's exact shape (a weekly-dead account's 5h window
+    /// lapses to `resets_at: null`).
+    private func weeklyProfile(_ name: String, util: Double, live: Bool = true) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        let resets = f.string(from: Date(timeIntervalSince1970: 1_700_000_000.0 + (live ? 7 * 86_400 : -3600)))
+        return """
+        {"name":"\(name)","active":false,\
+        "fallback":{"position":0,"threshold":95,"armed":true,"last_resort":false},\
+        "windows":[{"label":"7d","utilization_pct":\(util),"resets_at":"\(resets)"}]}
+        """
+    }
+
+    /// A member whose OVERALL 7d window is spent to 100% is dead until its
+    /// weekly reset — the walk must route around it even though it has no live
+    /// 5h window at all (the 2026-07-08 daemon bug, mirrored here for parity).
+    func testWeeklyDeadMemberIsSkippedDespiteAbsentFiveHour() {
+        let s = status(active: "a", chain: ["a", "b", "c"], profiles: [
+            profile("a", util: 97),
+            weeklyProfile("b", util: 100),
+            profile("c", util: 10),
+        ])
+        XCTAssertEqual(ForecastEngine.nextTarget(s, now: now), .switchTo("c"))
+    }
+
+    /// 99.9% still serves requests, and a PAST weekly reset is a renewed quota
+    /// — neither blocks.
+    func testWeeklyBelowCapOrLapsedStillHasHeadroom() {
+        let below = status(active: "a", chain: ["a", "b"], profiles: [
+            profile("a", util: 97),
+            weeklyProfile("b", util: 99.9),
+        ])
+        XCTAssertEqual(ForecastEngine.nextTarget(below, now: now), .switchTo("b"))
+        let renewed = status(active: "a", chain: ["a", "b"], profiles: [
+            profile("a", util: 97),
+            weeklyProfile("b", util: 100, live: false),
+        ])
+        XCTAssertEqual(ForecastEngine.nextTarget(renewed, now: now), .switchTo("b"))
+    }
+}

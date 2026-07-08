@@ -52,9 +52,23 @@ enum ForecastEngine {
         func profile(_ name: String) -> ProfileStatus? { status.profiles.first { $0.name == name } }
         func thresholdFor(_ p: ProfileStatus) -> Double { p.fallback?.threshold ?? 95 }
 
-        // is_exhausted (fallback.rs:33): only a LIVE 5h window (resets_at in the
-        // future) can exhaust; a lapsed/absent window means headroom again.
+        // weekly_blocked (fallback.rs): a LIVE overall 7d window spent to 100%
+        // hard-blocks the account until its weekly reset — its idle 5h window
+        // (often lapsed entirely) would otherwise read as fresh headroom.
+        func weeklyBlocked(_ p: ProfileStatus) -> Bool {
+            guard let w = p.sevenDay,
+                  let resetsAt = w.resetsAt,
+                  let resets = Theme.parseISO(resetsAt),
+                  resets > now
+            else { return false }
+            return w.utilizationPct >= 100
+        }
+
+        // is_exhausted (fallback.rs): weekly hard block, else only a LIVE 5h
+        // window (resets_at in the future) can exhaust; a lapsed/absent window
+        // means headroom again.
         func exhausted(_ p: ProfileStatus) -> Bool {
+            if weeklyBlocked(p) { return true }
             guard let w = p.fiveHour,
                   let resetsAt = w.resetsAt,
                   let resets = Theme.parseISO(resetsAt),
