@@ -53,6 +53,11 @@ struct PanelView: View {
         if let name = model.renaming {
             RenameBanner(model: model, name: name)
         }
+        // The inline add-account editor ("Add account…" row) floats here too — same
+        // idiom as the rename banner (a TextField needs a stable focus home).
+        if model.addingAccount {
+            AddAccountBanner(model: model)
+        }
         StatusStrip(model: model)
         Divider().padding(.horizontal, 12)
         accounts(status, dead: dead)
@@ -94,6 +99,15 @@ struct PanelView: View {
             } else {
                 rows
             }
+            // Sign a BRAND-NEW account in, in-app — the gap the reauth-only flow left
+            // (design §7). Subdued below the account rows; disabled while a browser
+            // login is already in flight (single-login guard) or the panel is frozen
+            // (a dead daemon can't reload config to surface the newcomer).
+            AddAccountRow(
+                disabled: dead || model.reauthInFlight != nil,
+                action: { model.beginAddAccount() }
+            )
+            .padding(.horizontal, 8)
         }
         // ↑/↓ move inspection (macOS 14 focus nav; degrades gracefully).
         .focusable()
@@ -324,6 +338,88 @@ private struct RenameBanner: View {
     private func commit() {
         guard liveError == nil else { return }
         model.commitRename(name, to: newName)
+    }
+}
+
+// MARK: - Add-account row + banner
+
+/// The subdued "⊕ Add account…" row at the foot of the ACCOUNTS list — deliberately
+/// quieter than an AccountRow (secondary tint, no usage bar, smaller type). Clicking
+/// opens the inline add-account editor. Dimmed + inert while `disabled`.
+private struct AddAccountRow: View {
+    let disabled: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus.circle").font(.callout)
+                Text("Add account…").font(.callout)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 4).padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(hovering && !disabled ? Color.primary.opacity(0.06) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// The inline add-account editor: a name TextField, live client-side validation
+/// (mirroring clauth's `validate_profile_name` via `AddAccountValidation`, incl. the
+/// case-insensitive collision pre-block), and Sign in/Cancel. Submitting opens the
+/// browser OAuth flow via the shared login launcher and creates the profile on
+/// success. Own `@State` + `@FocusState` so typing lands here on open — the same
+/// idiom as `RenameBanner`.
+private struct AddAccountBanner: View {
+    @ObservedObject var model: StatusModel
+    @State private var name: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Add account").font(.subheadline).fontWeight(.medium)
+            HStack(spacing: 6) {
+                TextField("new profile name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit(commit)
+                Button("Cancel") { model.cancelAddAccount() }.controlSize(.small)
+                Button("Sign in…", action: commit).controlSize(.small)
+                    .tint(Theme.accent)
+                    .disabled(liveError != nil)
+                    .keyboardShortcut(.return, modifiers: [])
+            }
+            // Show the exact rejection reason once the user has typed something; before
+            // that, a neutral hint about what "Sign in…" will do.
+            if let err = liveError, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                Text(err).font(.caption).foregroundStyle(Theme.danger)
+            } else {
+                Text("Opens your browser to sign in; creates the profile on success.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.bottom, 6)
+        .onAppear { focused = true }
+    }
+
+    /// Live validation echoing clauth's rule (nil ⇒ valid).
+    private var liveError: String? {
+        AddAccountValidation.error(name, existing: model.listProfiles.map(\.name))
+    }
+
+    private func commit() {
+        guard liveError == nil else { return }
+        model.addAccount(name)
     }
 }
 

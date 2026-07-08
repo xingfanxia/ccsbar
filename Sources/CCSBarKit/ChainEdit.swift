@@ -62,9 +62,10 @@ enum ChainEdit {
     /// the tooltip on the config toggle and the row's flag badge (one source of truth).
     static let lastResortLegend = "Last resort: the chain parks here when nothing else has headroom — even while this account is over its own limit."
 
-    /// "+ Add" clarifies it adds an EXISTING profile; account creation is a separate
-    /// `clauth login` (§7 — the disclosure must not imply it creates accounts).
-    static let addHint = "Adds an existing clauth profile to the chain (create accounts with `clauth login`)."
+    /// "+ Add" clarifies it adds an EXISTING profile; creating a brand-new account is
+    /// the separate "Add account…" affordance at the foot of the ACCOUNTS list (§7 —
+    /// the chain disclosure must not imply it creates accounts).
+    static let addHint = "Adds an existing clauth profile to the chain (create a new account with \u{201C}Add account\u{2026}\u{201D} in the ACCOUNTS list)."
 
     /// The wrap-off radio, in outcome language (§7). `off == false` (stay) is the
     /// first/default option.
@@ -82,6 +83,46 @@ enum ChainEdit {
               p.fallback?.armed == true else { return nil }
         let otherArmed = status.profiles.contains { $0.name != name && ($0.fallback?.armed ?? false) }
         return otherArmed ? .armedMember : .disablesAutoSwitch
+    }
+}
+
+/// Client-side name check for the "Add account…" flow, mirroring clauth's
+/// `validate_profile_name` (clauth `src/actions.rs`) EXACTLY so the panel rejects
+/// precisely the names the CLI would: trimmed and non-empty; every char an ASCII
+/// alphanumeric or one of `- _ . @ +`; not starting with `.`; and no
+/// CASE-INSENSITIVE collision with an existing profile.
+///
+/// WHY the collision is pre-blocked here rather than deferred to the CLI: `clauth
+/// login <existing>` silently RE-AUTHENTICATES that profile — its interactive
+/// "overwrite?" confirm never fires for ccsbar's non-TTY spawn — so an un-blocked
+/// duplicate would quietly reauth someone else's account instead of erroring. The
+/// hint therefore routes a duplicate to that account's "Log in again" instead.
+/// When no profiles are known (daemon down, no snapshot), the caller passes an
+/// empty `existing` so the collision check is skipped and clauth stays the
+/// authority (a non-zero exit surfaces through the failure copy).
+///
+/// Pure over its inputs, so it's unit-tested without a daemon or a real login.
+enum AddAccountValidation {
+    /// The exact reason `name` is unusable, or nil when it's valid.
+    static func error(_ name: String, existing: [String]) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return "Name can't be empty." }
+        // `is_ascii_alphanumeric()` in clauth — ASCII digits/letters only (NOT the
+        // Unicode-wide `Character.isLetter`), plus the same five punctuation chars.
+        let charsetOK = trimmed.allSatisfy { c in
+            if let a = c.asciiValue,
+               (a >= 48 && a <= 57) || (a >= 65 && a <= 90) || (a >= 97 && a <= 122) {
+                return true
+            }
+            return c == "-" || c == "_" || c == "." || c == "@" || c == "+"
+        }
+        if !charsetOK || trimmed.hasPrefix(".") {
+            return "Use only letters, digits, '-', '_', '.', '@', or '+', and don't start with '.'."
+        }
+        if existing.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            return "'\(trimmed)' already exists — use Log in again on that account."
+        }
+        return nil
     }
 }
 

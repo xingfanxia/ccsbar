@@ -3,8 +3,9 @@ import XCTest
 
 @testable import CCSBarKit
 
-/// AUTH-3 reauth flow: the pure outcome→message mapping (`reauthFailureMessage`)
-/// and the in-flight guard. The spawn itself (`clauth login`) is never invoked —
+/// AUTH-3 reauth flow: the pure outcome→message mapping (`loginFailureMessage`,
+/// shared with the add-account flow) and the in-flight guard. The spawn itself
+/// (`clauth login`) is never invoked —
 /// operator constraint: no real browser login in tests — so coverage is on the
 /// state routing, which is where the user-facing behavior actually lives.
 final class ReauthTests: XCTestCase {
@@ -13,13 +14,13 @@ final class ReauthTests: XCTestCase {
     func testSuccessHasNoErrorMessage() {
         // Exit 0: the CLI captured tokens and cleared auth_broken → no error, the
         // caller instead nudges a refresh.
-        XCTAssertNil(StatusModel.reauthFailureMessage(.ok, name: "xfx"))
+        XCTAssertNil(StatusModel.loginFailureMessage(.ok, name: "xfx"))
     }
 
     func testCLIFailureSurfacesCauseAndTerminalFallback() {
         // A non-zero `clauth login` (browser abandoned, timeout) must be loud AND
         // give the exact command to run by hand.
-        let msg = StatusModel.reauthFailureMessage(
+        let msg = StatusModel.loginFailureMessage(
             .daemonError(code: "cli_failed", message: "clauth exited 1"), name: "xfx")
         XCTAssertNotNil(msg)
         XCTAssertTrue(msg!.contains("clauth exited 1"), "carries the cause")
@@ -27,7 +28,7 @@ final class ReauthTests: XCTestCase {
     }
 
     func testMissingBinaryTellsUserToRunTheCLI() {
-        let msg = StatusModel.reauthFailureMessage(.unreachable, name: "cl-ax")
+        let msg = StatusModel.loginFailureMessage(.unreachable, name: "cl-ax")
         XCTAssertNotNil(msg)
         XCTAssertTrue(msg!.contains("clauth login cl-ax"))
     }

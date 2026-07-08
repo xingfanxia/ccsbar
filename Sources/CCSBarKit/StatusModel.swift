@@ -48,9 +48,13 @@ final class StatusModel: ObservableObject {
     /// the disclosure shows an honest "Applying…" while > 0. Cleared as each
     /// command's reply lands (the settle ladder then updates the view).
     @Published private(set) var configInFlight = 0
-    /// The account whose browser reauth (`clauth login`) is in flight, or nil. Drives
-    /// the "Opening browser to sign in…" state and blocks a second concurrent login.
+    /// The account whose browser login (`clauth login`) is in flight, or nil. Drives
+    /// the "Opening browser to sign in…" state and blocks a second concurrent login —
+    /// SHARED by the reauth flow AND the add-account flow (one sign-in at a time).
     @Published private(set) var reauthInFlight: String?
+    /// Whether the inline "Add account…" editor is open (a name field + Sign in).
+    /// Set by the ACCOUNTS-list "Add account…" row, cleared on submit/cancel.
+    @Published var addingAccount = false
 
     /// A switch is in flight (arming or pending) — tiles disable to block a second
     /// concurrent switch (M5/TECH-11), now derived from the phase.
@@ -544,7 +548,7 @@ final class StatusModel: ObservableObject {
     /// a time. `run` is injected so the outcome routing is testable without spawning.
     func reauth(
         _ name: String,
-        run: @escaping @Sendable (String) async -> CommandOutcome = { await DaemonClient.reauth($0) }
+        run: @escaping @Sendable (String) async -> CommandOutcome = { await DaemonClient.login($0) }
     ) {
         guard reauthInFlight == nil else { return } // one browser login at a time
         reauthInFlight = name
@@ -554,7 +558,7 @@ final class StatusModel: ObservableObject {
             let outcome = await run(name)
             guard let self else { return }
             self.reauthInFlight = nil
-            if let message = Self.reauthFailureMessage(outcome, name: name) {
+            if let message = Self.loginFailureMessage(outcome, name: name) {
                 self.showError(message)
             } else if self.daemonReachable {
                 // The CLI already cleared auth_broken + wrote fresh tokens; nudge a
@@ -566,10 +570,67 @@ final class StatusModel: ObservableObject {
         }
     }
 
-    /// The user-facing error for a reauth outcome, or nil on success. Pure so the copy
-    /// (and the "run it in a terminal" fallback hint) is unit-tested without spawning
-    /// `clauth login`.
-    nonisolated static func reauthFailureMessage(_ outcome: CommandOutcome, name: String) -> String? {
+    // MARK: - Add a brand-new account ("Add account…" → inline banner → browser login)
+
+    /// Open the inline add-account editor (a name field + Sign in).
+    func beginAddAccount() { addingAccount = true }
+    /// Dismiss the inline add-account editor without signing in.
+    func cancelAddAccount() { addingAccount = false }
+
+    /// Sign in a BRAND-NEW account through the same self-contained browser OAuth flow
+    /// as reauth. Since clauth v0.8.0 `clauth login <name>` CREATES the profile when
+    /// `name` is new, so this reuses the exact launcher AND the single-login in-flight
+    /// guard (`reauthInFlight`) — only one browser sign-in runs at a time across BOTH
+    /// flows. The name is pre-validated against clauth's rule INCLUDING a
+    /// case-insensitive collision pre-block: `clauth login <existing>` would silently
+    /// re-authenticate that profile (no TTY confirm fires for our non-TTY spawn), so an
+    /// already-taken name must be refused here, not spawned. On success clauth wrote the
+    /// new profile to config; the daemon reloads config on the external change, so we
+    /// inspect the newcomer (pure view state) and — when the socket is reachable — nudge
+    /// a refresh so it surfaces without waiting for the 4s poll. Chain membership is
+    /// deliberately NOT touched — the CHAIN section's add-picker owns that. `run` is
+    /// injected so outcome routing is testable without spawning `clauth login`.
+    func addAccount(
+        _ name: String,
+        run: @escaping @Sendable (String) async -> CommandOutcome = { await DaemonClient.login($0) }
+    ) {
+        guard reauthInFlight == nil else { return } // one browser login at a time
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        // Defense in depth — the banner's Sign-in button is already disabled while the
+        // name is invalid, but a collision MUST never reach the spawn (see the doc on
+        // `AddAccountValidation`: a duplicate would silently reauth someone else).
+        if let error = AddAccountValidation.error(trimmed, existing: listProfiles.map(\.name)) {
+            showError(error)
+            return
+        }
+        addingAccount = false
+        reauthInFlight = trimmed
+        lastCommandError = nil
+        errorClearTask?.cancel()
+        Task { [weak self] in
+            let outcome = await run(trimmed)
+            guard let self else { return }
+            self.reauthInFlight = nil
+            if let message = Self.loginFailureMessage(outcome, name: trimmed) {
+                self.showError(message)
+                return
+            }
+            // Success: clauth wrote the new profile. Inspect the newcomer (pure view
+            // state, zero daemon traffic) so it's the focused row the moment it lands,
+            // and — only when the socket is reachable — nudge a refresh so status.json
+            // reflects the external config change promptly. SKIP the socket refresh when
+            // the daemon is down (the login still succeeded; the next tick surfaces it)
+            // to avoid a false "daemon unreachable" banner.
+            self.inspect(trimmed)
+            if self.daemonReachable { self.refresh() }
+        }
+    }
+
+    /// The user-facing error for a browser-login outcome (reauth OR add-account), or
+    /// nil on success. ONE source of truth for both flows — the CLI verb (`clauth
+    /// login`) is identical — including the "run it in a terminal" fallback hint. Pure
+    /// so the copy is unit-tested without spawning `clauth login`.
+    nonisolated static func loginFailureMessage(_ outcome: CommandOutcome, name: String) -> String? {
         switch outcome {
         case .ok:
             return nil
