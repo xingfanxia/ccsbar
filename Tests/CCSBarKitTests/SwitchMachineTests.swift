@@ -132,3 +132,39 @@ final class SwitchMachineTests: XCTestCase {
         XCTAssertEqual(p, .idle)
     }
 }
+
+// MARK: - shouldExtendPending (the anti-false-failure deadline extension)
+
+extension SwitchMachineTests {
+    /// The daemon still holds the switch in its own queue (it defers a
+    /// mid-fetch target and retries itself) → keep waiting, don't lie.
+    func testDeadlineExtendsWhileDaemonStillHoldsTheTarget() {
+        XCTAssertTrue(SwitchMachine.shouldExtendPending(
+            daemonPending: "ax-backup", target: "ax-backup", elapsed: 6))
+        // Just under the ceiling still extends.
+        XCTAssertTrue(SwitchMachine.shouldExtendPending(
+            daemonPending: "ax-backup", target: "ax-backup",
+            elapsed: SwitchMachine.pendingHardCeiling - 0.1))
+    }
+
+    /// No daemon-side pending entry (dropped, executed, or the daemon is gone)
+    /// → the blind timeout verdict stands.
+    func testDeadlineDoesNotExtendWithoutADaemonPendingEntry() {
+        XCTAssertFalse(SwitchMachine.shouldExtendPending(
+            daemonPending: nil, target: "ax-backup", elapsed: 6))
+        // A DIFFERENT pending target means ours was superseded — fail, not wait.
+        XCTAssertFalse(SwitchMachine.shouldExtendPending(
+            daemonPending: "xfx", target: "ax-backup", elapsed: 6))
+    }
+
+    /// The hard ceiling bounds the trust in the daemon's retry loop: a switch
+    /// still deferred after 30s is genuinely stuck — surface the failure.
+    func testDeadlineStopsExtendingAtTheHardCeiling() {
+        XCTAssertFalse(SwitchMachine.shouldExtendPending(
+            daemonPending: "ax-backup", target: "ax-backup",
+            elapsed: SwitchMachine.pendingHardCeiling))
+        XCTAssertFalse(SwitchMachine.shouldExtendPending(
+            daemonPending: "ax-backup", target: "ax-backup",
+            elapsed: SwitchMachine.pendingHardCeiling + 5))
+    }
+}

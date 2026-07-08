@@ -79,6 +79,9 @@ final class StatusModel: ObservableObject {
     private var switchObserveTask: Task<Void, Never>?
     private var armTimeoutTask: Task<Void, Never>?
     private var pendingTimeoutTask: Task<Void, Never>?
+    /// When the current pending switch entered `.pending` — the elapsed-time
+    /// anchor for `SwitchMachine.shouldExtendPending`'s hard ceiling.
+    private var pendingSince: Date?
     private var switchDismissTask: Task<Void, Never>?
     private var rotationClearTask: Task<Void, Never>?
 
@@ -435,15 +438,8 @@ final class StatusModel: ObservableObject {
             armTimeoutTask?.cancel()
             fireSwitch(target)
             observeSwitch(target)
-            pendingTimeoutTask?.cancel()
-            // At the 6s deadline, take ONE last look before declaring failure — a
-            // switch that landed after the final observe read (or during a contended
-            // Keychain rewrite) still confirms rather than false-failing.
-            pendingTimeoutTask = after(6) { model in
-                model.reload()
-                model.dispatch(.observedActive(model.status?.activeProfile))
-                model.dispatch(.pendingTimedOut) // no-op if the line above confirmed
-            }
+            pendingSince = Date()
+            armPendingDeadline(target, in: 6)
         case .confirmed:
             cancelSwitchTimers(keepDismiss: true)
             lastCommandError = nil
@@ -455,6 +451,33 @@ final class StatusModel: ObservableObject {
             showError(reason) // reuse the TECH-11 banner
             switchDismissTask?.cancel()
             switchDismissTask = after(6) { $0.dispatch(.dismiss) }
+        }
+    }
+
+    /// Arm the pending deadline. When it fires, take one last look before
+    /// declaring failure — a switch that landed after the final observe read
+    /// still confirms rather than false-failing. And when the daemon's own
+    /// queue STILL holds this target (it defers a mid-fetch target and retries
+    /// itself — the daemon log shows "deferring switch to 'x': target is
+    /// mid-fetch"), keep waiting on a 2s re-check cadence up to the machine's
+    /// 30s hard ceiling: the common case is a brand-new account whose first
+    /// usage poll outlives a blind 6s timeout.
+    private func armPendingDeadline(_ target: String, in seconds: Double) {
+        pendingTimeoutTask?.cancel()
+        pendingTimeoutTask = after(seconds) { model in
+            model.reload()
+            model.dispatch(.observedActive(model.status?.activeProfile))
+            guard case .pending = model.switchPhase else { return } // confirmed above
+            let elapsed = Date().timeIntervalSince(model.pendingSince ?? .distantPast)
+            if SwitchMachine.shouldExtendPending(
+                daemonPending: model.status?.pendingSwitch,
+                target: target,
+                elapsed: elapsed
+            ) {
+                model.armPendingDeadline(target, in: 2)
+                return
+            }
+            model.dispatch(.pendingTimedOut)
         }
     }
 

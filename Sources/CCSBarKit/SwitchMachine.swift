@@ -13,8 +13,11 @@ enum SwitchMachine {
         /// (a Keychain rewrite would strand it — guard the asset the op destroys).
         case arming(target: String)
         /// Command accepted by the daemon; awaiting its next tick to LAND the switch
-        /// (confirmed by observing `active_profile`, or the 6s accepted-then-dropped
-        /// timeout).
+        /// (confirmed by observing `active_profile`). The 6s accepted-then-dropped
+        /// deadline EXTENDS while status.json's `pending_switch` shows the daemon
+        /// still holds this target — it defers a switch whose target is mid-fetch
+        /// and retries on its own (120s TTL), so failing the UI at 6s would lie;
+        /// see [`shouldExtendPending`]. A 30s hard ceiling still bounds the wait.
         case pending(target: String)
         /// The switch landed. `viaCLI` ⇒ the daemon was dead and `clauth` did it, so
         /// auto-switch stays inactive until the daemon starts (design §8 label).
@@ -49,6 +52,27 @@ enum SwitchMachine {
         case armTimedOut                                 // 5s in arming with no confirm
         case pendingTimedOut                             // 6s in pending with no landing
         case dismiss                                     // clear a transient confirmed/failed
+    }
+
+    /// How long a pending switch may wait in total before the deadline stops
+    /// extending — a bound on trusting the daemon's own retry loop, well under
+    /// its 120s queue TTL but far past a slow first usage fetch.
+    static let pendingHardCeiling: TimeInterval = 30
+
+    /// At a pending deadline: whether to keep waiting instead of failing.
+    /// True while the daemon's OWN queue still holds this target (status.json
+    /// `pending_switch`) and the total wait is under [`pendingHardCeiling`].
+    /// The common trigger is a brand-new account: its first usage poll makes it
+    /// "mid-fetch" exactly when the user clicks Use, the daemon defers (with
+    /// immediate-then-exponential retry), and the switch lands seconds after a
+    /// blind 6s timeout would have declared failure. Pure so every branch is
+    /// unit-tested without timers.
+    static func shouldExtendPending(
+        daemonPending: String?,
+        target: String,
+        elapsed: TimeInterval
+    ) -> Bool {
+        daemonPending == target && elapsed < pendingHardCeiling
     }
 
     static func reduce(_ phase: Phase, _ event: Event) -> Phase {
