@@ -41,7 +41,11 @@ struct AccountRow: View {
         .onHover { hovering = $0 }
         .contextMenu { AccountContextMenu(model: model, p: p, status: status) }
         .opacity(dead ? 0.6 : 1)
-        .help("\(p.name) · \(p.tier ?? p.provider) — click to inspect")
+        .help(
+            "\(p.name) · \(p.tier ?? p.provider)"
+                + (p.accountEmail.map { " · \($0)" } ?? "")
+                + " — click to inspect"
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(voiceOver)
     }

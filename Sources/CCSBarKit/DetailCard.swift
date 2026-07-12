@@ -13,6 +13,16 @@ struct DetailCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
+            // CAP-3: WHICH account this profile's login belongs to — the
+            // 2026-07-12 double-poll went unseen because no surface showed it.
+            if let email = p.accountEmail {
+                Text(email)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
             if p.provider == "anthropic" {
                 windows
             } else {

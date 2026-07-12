@@ -33,6 +33,13 @@ final class DaemonStatusTests: XCTestCase {
         XCTAssertEqual(status.profiles.first { $0.name == "account-1" }?.fallback?.lastResort, false)
         // account-3 is the chain tail marked last resort — exercises the flag badge.
         XCTAssertEqual(status.profiles.first { $0.name == "account-3" }?.fallback?.lastResort, true)
+        // CAP-3 account_email: present decodes verbatim; absent (older daemon /
+        // not yet backfilled — account-3) stays nil, never a decode failure.
+        XCTAssertEqual(
+            status.profiles.first { $0.name == "account-1" }?.accountEmail,
+            "alpha@example.com"
+        )
+        XCTAssertNil(status.profiles.first { $0.name == "account-3" }?.accountEmail)
     }
 
     // MARK: Additive forecast fields (clauth 81c00a2) — present AND absent decode.

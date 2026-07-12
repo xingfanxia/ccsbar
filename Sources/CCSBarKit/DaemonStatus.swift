@@ -138,10 +138,18 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// (older daemons). Drives the forecast engine's auth-broken skip (AUTH-1) and
     /// the red auth badge — a revoked login must never be a rotation target.
     let authStatus: String?
+    /// CAP-3: the account email this profile's stored login belongs to (the
+    /// identity anchor's readable half, backfilled by the daemon's /profile
+    /// fetch). Absent on older daemons or before the first backfill. Shown so
+    /// a wrong-account capture is visible at a glance — the 2026-07-12
+    /// double-poll incident was invisible precisely because nothing displayed
+    /// WHICH account each profile held.
+    let accountEmail: String?
 
     enum CodingKeys: String, CodingKey {
         case name, active, provider, tier, fallback, windows
         case authStatus = "auth_status"
+        case accountEmail = "account_email"
         case baseUrl = "base_url"
         case hasLiveSession = "has_live_session"
         case fetchStatus = "fetch_status"
@@ -172,6 +180,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         windows = try c.decodeIfPresent([UsageWindow].self, forKey: .windows) ?? []
         thirdParty = try c.decodeIfPresent(ThirdPartyInfo.self, forKey: .thirdParty)
         authStatus = try c.decodeIfPresent(String.self, forKey: .authStatus)
+        accountEmail = try c.decodeIfPresent(String.self, forKey: .accountEmail)
     }
 
     /// The window with the given label (`"5h"`, `"7d"`, `"7d fable"`), or nil.
