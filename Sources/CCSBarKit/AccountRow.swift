@@ -215,6 +215,9 @@ struct AccountRow: View {
         var parts = [p.name]
         if p.active { parts.append("active account") }
         if let tier = p.tier { parts.append(tier) }
+        // Parity with the hover tooltip: WHICH account this profile holds is
+        // CAP-3's whole point — assistive tech must hear it too.
+        if let email = p.accountEmail { parts.append(email) }
         // Order mirrors the visual badge cluster: spent pill, then the watching chip.
         if let tag = rowSpentTag { parts.append("\(tag) — hit a usage limit") }
         if p.fallback?.armed == true { parts.append("armed, watching") }
