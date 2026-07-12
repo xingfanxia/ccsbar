@@ -93,9 +93,17 @@ struct AccountRow: View {
 
     @ViewBuilder private var badgeCluster: some View {
         HStack(spacing: 5) {
+            // A dead login gets a WORDED danger pill, not an icon-only glyph: its
+            // fetches surface as RateLimited/Cached (the 429 mask), and an icon
+            // beside a "RateLimited" text lost that fight — the operator read the
+            // text and chased a rate limit while the real fix was a re-login
+            // (observed 2026-07-12).
             if p.authBroken {
                 Label("login expired", systemImage: "exclamationmark.shield.fill")
-                    .labelStyle(.iconOnly).font(.system(size: 11)).foregroundStyle(Theme.danger)
+                    .font(.system(size: 10)).fontWeight(.medium).fixedSize()
+                    .padding(.vertical, 1).padding(.horizontal, 5)
+                    .background(Theme.danger.opacity(0.18), in: Capsule())
+                    .foregroundStyle(Theme.danger)
                     .help("Login expired — clauth login \(p.name)")
             }
             // Exhausted: a 5h or weekly window is at its cap → the account can't be
@@ -123,7 +131,10 @@ struct AccountRow: View {
                 Text("in use").font(.system(size: 10)).foregroundStyle(.secondary)
                     .help("A claude session is attached to this account")
             }
-            if p.isStale, let fs = p.fetchStatus {
+            // Suppressed while the login is broken: the stale fetch status is a
+            // CONSEQUENCE of the dead login (its 429/cached reads), and showing
+            // both makes the transient-looking one win attention.
+            if !p.authBroken, p.isStale, let fs = p.fetchStatus {
                 Text(fs).font(.system(size: 10)).foregroundStyle(Theme.warning)
             }
         }
