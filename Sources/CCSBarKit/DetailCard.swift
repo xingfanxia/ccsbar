@@ -23,10 +23,14 @@ struct DetailCard: View {
                     .truncationMode(.middle)
                     .textSelection(.enabled)
             }
-            // Codex profiles (provider "openai") carry the same {5h,7d} window array as
-            // claude (INT-2), so they take the window path, not the third-party
-            // availability card — mirrors AccountRow's gate.
-            if p.provider == "anthropic" || p.isCodex {
+            // Codex profiles (provider "openai") carry %-windows (INT-2) so they
+            // take a window path, not the third-party availability card — but
+            // their window SET is dynamic (weekly-only since 2026-07, OpenAI
+            // dropped the 5h limit), so codex renders only the windows that exist
+            // instead of the fixed claude {5h, 7d} rows.
+            if p.isCodex {
+                codexWindows
+            } else if p.provider == "anthropic" {
                 windows
             } else {
                 thirdPartyDetail
@@ -59,6 +63,26 @@ struct DetailCard: View {
             // reports it (it drops out of status.json when the trial ends).
             if let fable = p.fableWeek {
                 windowRow("Fable", fable, tick: nil)
+            }
+        }
+    }
+
+    /// Codex's dynamic window rows: only what exists. Weekly-only (the 2026-07
+    /// OpenAI shape) shows ONE "Weekly 7d" row with its real multi-day reset —
+    /// never a phantom "Session 5h —". The threshold tick renders only on a real
+    /// 5h row (chain thresholds are 5h semantics).
+    @ViewBuilder private var codexWindows: some View {
+        VStack(spacing: 8) {
+            if let five = p.fiveHour {
+                windowRow("Session 5h", five, tick: p.fallback?.threshold)
+            }
+            if let seven = p.sevenDay {
+                windowRow("Weekly 7d", seven, tick: nil)
+            }
+            if p.fiveHour == nil, p.sevenDay == nil {
+                Text("No usage data yet — appears after the first codex turn.")
+                    .font(.subheadline).foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -131,17 +155,21 @@ struct DetailCard: View {
         }
     }
 
+    /// The harness's identity hue (TABS-1.1): terracotta claude, royal blue codex.
+    private var identity: Color { p.isCodex ? Theme.codex : Theme.accent }
+    private var identityVerb: Color { p.isCodex ? Theme.codexActVerb : Theme.actVerb }
+
     private var activeState: some View {
         VStack(spacing: 5) {
             HStack {
                 Spacer()
                 Label(p.hasLiveSession ? "Active account · live session attached" : "Active account",
                       systemImage: "checkmark.circle.fill")
-                    .font(.subheadline).foregroundStyle(Theme.accent)
+                    .font(.subheadline).foregroundStyle(identity)
                 Spacer()
             }
             .frame(height: 28)
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(identity.opacity(0.5), lineWidth: 1))
             // The active account has no switch verb — so name the path. This is the
             // one spot a first-time user looks for "how do I switch?" (the panel opens
             // with the active account inspected, i.e. on exactly this card). The count
@@ -185,7 +213,7 @@ struct DetailCard: View {
                     Spacer()
                 }
                 .font(.body).fontWeight(.semibold).frame(height: 28).foregroundStyle(.white)
-                .background(Theme.actVerb.opacity(inFlight ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 8))
+                .background(identityVerb.opacity(inFlight ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
             .disabled(model.reauthInFlight != nil)
@@ -203,9 +231,9 @@ struct DetailCard: View {
                 let current = model.activeProfile(for: p.harnessKind)?.name ?? "current"
                 return ("Confirm — live session on \(current)", Theme.danger)
             case .pending(let t) where t == target:
-                return ("Switching to \(target)…", Theme.actVerb)
+                return ("Switching to \(target)…", identityVerb)
             default:
-                return (idleTitle, Theme.actVerb)
+                return (idleTitle, identityVerb)
             }
         }()
         let pending: Bool = { if case .pending(let t) = model.switchPhase, t == target { return true }; return false }()

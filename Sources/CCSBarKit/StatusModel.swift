@@ -494,6 +494,12 @@ final class StatusModel: ObservableObject {
         if p.active, !p.isCodex, case .switchTo(let target) = forecast {
             return "\(ordinal) in chain · watched now — would rotate to \(target) at \(Int(threshold))% of the 5h window"
         }
+        // A codex member with NO 5h window (the 2026-07 weekly-only shape): the
+        // 5h-threshold clause would describe a window that doesn't exist — the
+        // codex walk rotates on the limiter verdict / weekly line instead.
+        if p.isCodex, p.fiveHour == nil {
+            return "\(ordinal) in chain · rotates at the session boundary when limited"
+        }
         return "\(ordinal) in chain · leaves at \(Int(threshold))% of the 5h window"
     }
 

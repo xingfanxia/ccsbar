@@ -33,6 +33,17 @@ enum ProviderTab: String, CaseIterable, Sendable {
         }
     }
 
+    /// The tab's identity hue (TABS-1.1, codexbar-style provider colors):
+    /// claude terracotta, codex royal blue; Overview is cross-harness, so it
+    /// stays neutral (primary label on a neutral wash).
+    var tint: Color? {
+        switch self {
+        case .overview: return nil
+        case .claude: return Theme.accent
+        case .codex: return Theme.codex
+        }
+    }
+
     /// UserDefaults key for the persisted selection (read/written by StatusModel —
     /// NOT @AppStorage: a DynamicProperty inside an ObservableObject never
     /// publishes, so the model persists manually and publishes via @Published).
@@ -74,7 +85,7 @@ struct ProviderTabBar: View {
             .frame(maxWidth: .infinity)
             .contentShape(RoundedRectangle(cornerRadius: 7))
         }
-        .buttonStyle(TabSegmentStyle(selected: selected))
+        .buttonStyle(TabSegmentStyle(selected: selected, tint: tab.tint))
         // ⌘1/⌘2/⌘3 jump straight to a page.
         .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
         .accessibilityLabel("\(tab.title) tab")
@@ -86,8 +97,11 @@ struct ProviderTabBar: View {
     /// harness or the harness has no active account — labels stay vertically
     /// aligned across segments. Decorative: the rows/detail read the real numbers.
     @ViewBuilder private func underline(for tab: ProviderTab) -> some View {
+        // The hero window (5h when it exists, else weekly — codex is weekly-only
+        // as of 2026-07), so the underline never goes blank just because a
+        // provider dropped its short window.
         let active = tab.harness.flatMap { model.activeProfile(for: $0) }
-        let pct = active?.fiveHourPct
+        let pct = active?.heroWindow?.utilizationPct
         UsageBar(
             pct: pct ?? 0,
             color: pct.map { Theme.usageColor($0, threshold: active?.fallback?.threshold ?? 100) } ?? .clear,
@@ -99,18 +113,20 @@ struct ProviderTabBar: View {
     }
 }
 
-/// Selected = accent-tinted label on an accent wash; unselected = secondary label
-/// with the panel's quiet hover treatment (AccountRow's 0.045 idiom).
+/// Selected = the tab's identity hue (terracotta / codex blue; Overview neutral)
+/// as label tint on a matching wash; unselected = secondary label with the
+/// panel's quiet hover treatment (AccountRow's 0.045 idiom).
 private struct TabSegmentStyle: ButtonStyle {
     let selected: Bool
+    let tint: Color?
     @State private var hovering = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(selected ? Theme.accent : Color.secondary)
+            .foregroundStyle(selected ? (tint ?? Color.primary) : Color.secondary)
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(selected ? Theme.accent.opacity(0.16)
+                    .fill(selected ? (tint ?? Color.primary).opacity(0.14)
                           : (hovering ? Color.primary.opacity(0.045) : .clear))
             )
             .onHover { hovering = $0 }

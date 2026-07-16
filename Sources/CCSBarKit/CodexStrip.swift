@@ -41,7 +41,7 @@ struct CodexStrip: View {
 
     private func activeLine(_ active: ProfileStatus) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.accent)
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.codex)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Active \(active.name) — codex uses this login")
                     .font(.callout).fixedSize(horizontal: false, vertical: true)

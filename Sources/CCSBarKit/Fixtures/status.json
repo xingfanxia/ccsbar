@@ -146,11 +146,6 @@
       },
       "windows": [
         {
-          "label": "5h",
-          "utilization_pct": 55,
-          "resets_at": "2026-07-04T21:00:00.000000+00:00"
-        },
-        {
           "label": "7d",
           "utilization_pct": 40,
           "resets_at": "2026-07-10T00:00:00.000000+00:00"

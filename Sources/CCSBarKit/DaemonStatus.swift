@@ -279,6 +279,15 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// and a claude row can both be `active` at once — this tells them apart.
     var isCodex: Bool { harness == "codex" }
 
+    /// The profile's representative window: the short/session (5h) window when
+    /// present, else the weekly. Codex ships weekly-ONLY as of 2026-07 (OpenAI
+    /// temporarily dropped the 5h limit; the daemon routes windows by their own
+    /// duration), so codex surfaces that summarize one number — the tab
+    /// underline, the Overview card, VoiceOver — read this instead of assuming
+    /// a 5h window exists. For claude, `heroWindow == fiveHour` always.
+    var heroWindow: UsageWindow? { fiveHour ?? sevenDay }
+    var heroPct: Double { heroWindow?.utilizationPct ?? 0 }
+
     /// Is this profile a member of the fallback chain?
     var inChain: Bool { fallback != nil }
 

@@ -28,9 +28,10 @@ extension ProfileStatus {
     /// The spent-badge text, most-limiting window first, or nil when the account has
     /// headroom. "week spent" outranks "5h spent" — a weekly cap lasts days, a session
     /// cap hours — so the longer-lasting limit names the badge. Third-party accounts
-    /// have no %-windows, so they never read as spent.
+    /// have no %-windows, so they never read as spent; codex rows DO carry %-windows
+    /// (weekly-only as of 2026-07 — a missing 5h window simply never reads spent).
     var spentTag: String? {
-        guard provider == "anthropic" else { return nil }
+        guard provider == "anthropic" || isCodex else { return nil }
         switch (fiveHourSpent, weeklySpent) {
         case (true, true): return "spent"
         case (false, true): return "week spent"

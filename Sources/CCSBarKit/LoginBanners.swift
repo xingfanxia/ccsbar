@@ -108,7 +108,7 @@ struct AddAccountBanner: View {
                     Button("Cancel") { model.cancelAddAccount() }.controlSize(.small)
                     Spacer(minLength: 4)
                     Button("Capture current login") { commit(.capture) }
-                        .controlSize(.small).tint(Theme.accent)
+                        .controlSize(.small).tint(Theme.codex)
                         .disabled(commitDisabled)
                         .keyboardShortcut(.return, modifiers: [])
                         .help("Copies the login codex is signed in with right now — instant, no browser.")
@@ -146,7 +146,9 @@ struct AddAccountBanner: View {
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        // The editor wash wears the harness identity (TABS-1.1).
+        .background((harness == .codex ? Theme.codex : Theme.accent).opacity(0.10),
+                    in: RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 12).padding(.bottom, 6)
         .onAppear { focused = true }
     }

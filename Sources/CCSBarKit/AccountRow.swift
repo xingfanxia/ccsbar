@@ -33,12 +33,15 @@ struct AccountRow: View {
                     .padding(.leading, 18)
                     .padding(.top, -3)
             }
-            // Codex profiles publish `provider == "openai"` but carry the same
-            // {5h,7d} window array as claude (INT-2), so they take the %-bar path,
-            // not the third-party availability line. Only genuine api-key providers
-            // (no %-windows) get thirdPartyLine.
+            // Codex profiles publish `provider == "openai"` but carry %-windows
+            // (INT-2), so they take a bar path, not the third-party availability
+            // line — but their window SET is dynamic (weekly-only since 2026-07,
+            // OpenAI dropped the 5h limit), so codex rows render whatever windows
+            // exist instead of assuming the claude {5h, 7d} pair.
             if p.provider != "anthropic" && !p.isCodex {
                 thirdPartyLine
+            } else if p.isCodex {
+                codexRows
             } else {
                 fiveHourRow
                 secondaryRow
@@ -74,9 +77,11 @@ struct AccountRow: View {
 
     private var header: some View {
         HStack(spacing: 6) {
+            // Active mark wears the harness's identity hue (TABS-1.1):
+            // terracotta = claude, royal blue = codex.
             Image(systemName: p.active ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 12))
-                .foregroundStyle(p.active ? Theme.accent : Color.secondary)
+                .foregroundStyle(p.active ? (p.isCodex ? Theme.codex : Theme.accent) : Color.secondary)
             // A spent account's name mutes — a pre-attentive "this one's unavailable".
             Text(p.name).font(.body).fontWeight(.semibold).lineLimit(1).truncationMode(.tail)
                 .foregroundStyle(rowSpentTag != nil ? Color.secondary : Color.primary)
@@ -159,23 +164,45 @@ struct AccountRow: View {
         }
     }
 
-    // MARK: - 5h hero row
+    // MARK: - Hero row (the big bar: claude's 5h; codex's hero window)
 
-    private var fiveHourRow: some View {
-        let pct = p.fiveHourPct
+    private var fiveHourRow: some View { heroRow("5h", p.fiveHour, tick: p.fallback?.threshold) }
+
+    private func heroRow(_ label: String, _ w: UsageWindow?, tick: Double?) -> some View {
+        let pct = w?.utilizationPct ?? 0
         return VStack(spacing: 3) {
             UsageBar(
                 pct: pct,
-                color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct, threshold: p.fallback?.threshold ?? 100),
+                color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct, threshold: tick ?? 100),
                 height: 6,
-                threshold: p.fallback?.threshold
+                threshold: tick
             )
             HStack {
-                Text("5h").font(.caption).foregroundStyle(.tertiary)
+                Text(label).font(.caption).foregroundStyle(.tertiary)
                 Text("\(Int(pct.rounded()))%").font(.body).fontWeight(.semibold).monospacedDigit()
                 Spacer()
-                Text(stamp(p.fiveHour?.resetsAt)).font(.subheadline).foregroundStyle(.secondary)
+                Text(stamp(w?.resetsAt)).font(.subheadline).foregroundStyle(.secondary)
             }
+        }
+    }
+
+    // MARK: - Codex rows (dynamic window set — weekly-only since 2026-07)
+
+    /// The hero bar is the short (5h) window when present, else the weekly —
+    /// labeled truthfully, so a weekly-only account shows ONE "7d" bar with its
+    /// real multi-day reset instead of a phantom 5h row and a dashed 7d. The
+    /// threshold tick renders only on a real 5h hero (chain thresholds are 5h
+    /// semantics). The secondary mini-row appears only when both windows exist.
+    @ViewBuilder private var codexRows: some View {
+        if let hero = p.heroWindow {
+            let heroIsFiveHour = p.fiveHour != nil
+            heroRow(heroIsFiveHour ? "5h" : "7d", hero,
+                    tick: heroIsFiveHour ? p.fallback?.threshold : nil)
+            if heroIsFiveHour, p.sevenDay != nil {
+                secondaryRow
+            }
+        } else {
+            Text("No usage data yet").font(.subheadline).foregroundStyle(.tertiary)
         }
     }
 
@@ -267,10 +294,13 @@ struct AccountRow: View {
         // Order mirrors the visual badge cluster: spent pill, then the watching chip.
         if let tag = rowSpentTag { parts.append("\(tag) — hit a usage limit") }
         if p.fallback?.armed == true { parts.append("armed, watching") }
-        // Codex rows carry the same 5h window as claude (INT-2), so they read the
-        // session-usage percent too.
-        if p.provider == "anthropic" || p.isCodex {
+        // Codex windows are dynamic (weekly-only since 2026-07) — read the hero
+        // window so VoiceOver names a real number, never a phantom 5h zero.
+        if p.provider == "anthropic" {
             parts.append("session \(Int(p.fiveHourPct.rounded())) percent used")
+        } else if p.isCodex, let hero = p.heroWindow {
+            let name = p.fiveHour != nil ? "session" : "weekly"
+            parts.append("\(name) \(Int(hero.utilizationPct.rounded())) percent used")
         }
         return parts.joined(separator: ", ")
     }

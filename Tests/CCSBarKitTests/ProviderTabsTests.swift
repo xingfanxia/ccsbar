@@ -82,9 +82,12 @@ final class ProviderTabsTests: XCTestCase {
         XCTAssertEqual(model.chainLine(for: cxa),
                        "1st in chain · leaves at 95% of the 5h window",
                        "active codex gets the plain line — no claude forecast clause")
+        // cx-b has NO windows (weekly-only era shape): the 5h-threshold clause
+        // would describe a window that doesn't exist, so the copy names the
+        // codex walk's real trigger instead.
         let cxb = try XCTUnwrap(s.profiles.first { $0.name == "cx-b" })
         XCTAssertEqual(model.chainLine(for: cxb),
-                       "2nd in chain · leaves at 95% of the 5h window")
+                       "2nd in chain · rotates at the session boundary when limited")
     }
 
     // MARK: - Harness-aware switch
@@ -233,6 +236,48 @@ final class ProviderTabsTests: XCTestCase {
         XCTAssertNil(model.renaming)
         XCTAssertNil(model.pendingRemoval)
         XCTAssertNil(model.thresholdEdit)
+    }
+
+    // MARK: - Hero window (codex is weekly-only since 2026-07)
+
+    func testHeroWindowFallsBackToWeeklyWhenNoFiveHour() throws {
+        // Weekly-only codex (the live OpenAI shape): hero = the 7d window.
+        let s = try JSONDecoder().decode(DaemonStatus.self, from: Data("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":null,
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
+         "profiles":[
+           {"name":"cx","active":true,"provider":"openai","harness":"codex",
+            "windows":[{"label":"7d","utilization_pct":37,"resets_at":"2099-01-06T00:00:00+00:00"}]},
+           {"name":"cx-dry","active":false,"provider":"openai","harness":"codex","windows":[]}
+         ]}
+        """.utf8))
+        let cx = try XCTUnwrap(s.profiles.first { $0.name == "cx" })
+        XCTAssertNil(cx.fiveHour, "no phantom 5h window")
+        XCTAssertEqual(cx.heroWindow?.label, "7d")
+        XCTAssertEqual(cx.heroPct, 37)
+        // No windows at all → hero nil, pct 0 (surfaces show 'no data', not 0%).
+        let dry = try XCTUnwrap(s.profiles.first { $0.name == "cx-dry" })
+        XCTAssertNil(dry.heroWindow)
+        XCTAssertEqual(dry.heroPct, 0)
+        // Claude invariance: hero == 5h whenever 5h exists.
+        let both = try twoHarnessStatus()
+        let cla = try XCTUnwrap(both.profiles.first { $0.name == "cl-a" })
+        XCTAssertEqual(cla.heroWindow?.label, "5h")
+    }
+
+    func testWeeklyOnlyCodexSpentTagReadsWeekSpent() throws {
+        // spentTag now covers codex rows (INT-2 gap): a weekly-only codex at cap
+        // reads "week spent"; a missing 5h window never reads spent.
+        let s = try JSONDecoder().decode(DaemonStatus.self, from: Data("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":null,
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
+         "profiles":[
+           {"name":"cx","active":true,"provider":"openai","harness":"codex",
+            "windows":[{"label":"7d","utilization_pct":100,"resets_at":"2099-01-06T00:00:00+00:00"}]}
+         ]}
+        """.utf8))
+        let cx = try XCTUnwrap(s.profiles.first { $0.name == "cx" })
+        XCTAssertEqual(cx.spentTag, "week spent")
     }
 
     // MARK: - Removal confirm is harness-scoped

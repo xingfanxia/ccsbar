@@ -67,7 +67,9 @@ private struct HarnessCard: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Image(systemName: tab.symbol).font(.system(size: 12)).foregroundStyle(Theme.accent)
+            // Provider identity hue (TABS-1.1): terracotta claude, royal blue codex.
+            Image(systemName: tab.symbol).font(.system(size: 12))
+                .foregroundStyle(tab.tint ?? Theme.accent)
             Text(tab.title).font(.body).fontWeight(.semibold)
             if let tier = active?.tier {
                 Text(tier).font(.subheadline).foregroundStyle(.secondary)
@@ -90,10 +92,20 @@ private struct HarnessCard: View {
         }
     }
 
+    /// Only the windows that exist (codex is weekly-only since 2026-07 — a
+    /// dashed phantom "5h —" bar would mislead more than a single honest 7d).
     private func bars(_ active: ProfileStatus) -> some View {
         HStack(spacing: 10) {
-            miniBar("5h", active.fiveHour?.utilizationPct, threshold: active.fallback?.threshold)
-            miniBar("7d", active.sevenDay?.utilizationPct, threshold: nil)
+            if let five = active.fiveHour {
+                miniBar("5h", five.utilizationPct, threshold: active.fallback?.threshold)
+            }
+            if let seven = active.sevenDay {
+                miniBar("7d", seven.utilizationPct, threshold: nil)
+            }
+            if active.fiveHour == nil, active.sevenDay == nil {
+                Text("No usage data yet").font(.caption).foregroundStyle(.tertiary)
+                Spacer(minLength: 0)
+            }
         }
     }
 
