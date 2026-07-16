@@ -155,9 +155,11 @@ struct DetailCard: View {
         }
     }
 
-    /// The harness's identity hue (TABS-1.1): terracotta claude, royal blue codex.
+    /// The harness's identity hue (TABS-1.1): terracotta claude, codex blue codex.
+    /// Codex uses ONE hue for identity and verb — white on #0A60FF is already AA
+    /// (5.1:1); terracotta needs the darkened `actVerb` for its verb fills.
     private var identity: Color { p.isCodex ? Theme.codex : Theme.accent }
-    private var identityVerb: Color { p.isCodex ? Theme.codexActVerb : Theme.actVerb }
+    private var identityVerb: Color { p.isCodex ? Theme.codex : Theme.actVerb }
 
     private var activeState: some View {
         VStack(spacing: 5) {

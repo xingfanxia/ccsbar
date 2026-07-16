@@ -16,14 +16,13 @@ enum Theme {
     /// #43ABE5 sapphire — ARMED / WATCHING / auto-switch identity (forecast bolt,
     /// armed chip ring, pending-switch pulse).
     static let sapphire = Color(.sRGB, red: 0.263, green: 0.671, blue: 0.898)
-    /// #2F6BF2 codex royal blue — the CODEX identity hue (TABS-1.1, mirroring
-    /// codexbar's provider color): codex tab selection, codex active marks,
-    /// codex glance-card glyph. Deliberately deeper/purpler than sapphire so
-    /// "codex identity" never reads as "armed".
-    static let codex = Color(.sRGB, red: 0.184, green: 0.420, blue: 0.949)
-    /// #2050C8 darkened codex blue — the codex ACT verb (switch/sign-in button
-    /// fills under white text, ≥4.5:1 AA), pairing with `actVerb`'s role.
-    static let codexActVerb = Color(.sRGB, red: 0.125, green: 0.314, blue: 0.784)
+    /// #0A60FF codex blue — the CODEX identity hue, pixel-sampled from
+    /// codexbar's own Codex tab (2026-07-16) so the two apps agree on the
+    /// provider color: codex tab pill, active marks, glance-card glyph, and
+    /// the codex ACT-verb fills (white on #0A60FF is 5.1:1 — AA without a
+    /// darkened variant, unlike terracotta which needs `actVerb`). Deliberately
+    /// deeper than sapphire so "codex identity" never reads as "armed".
+    static let codex = Color(.sRGB, red: 10.0 / 255, green: 96.0 / 255, blue: 1.0)
 
     // HEADROOM/HEALTH as light/dark DYNAMIC pairs (Catppuccin Latte in light,
     // Mocha in dark) — fixes the 1.3–2.3:1 light-mode contrast failures the flat

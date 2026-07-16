@@ -34,12 +34,24 @@ enum ProviderTab: String, CaseIterable, Sendable {
     }
 
     /// The tab's identity hue (TABS-1.1, codexbar-style provider colors):
-    /// claude terracotta, codex royal blue; Overview is cross-harness, so it
-    /// stays neutral (primary label on a neutral wash).
+    /// claude terracotta, codex blue (#0A60FF, sampled from codexbar itself);
+    /// Overview is cross-harness, so it stays neutral.
     var tint: Color? {
         switch self {
         case .overview: return nil
         case .claude: return Theme.accent
+        case .codex: return Theme.codex
+        }
+    }
+
+    /// The SELECTED tab's solid pill fill (codexbar's style: a filled pill with
+    /// a white label). Codex blue is AA under white directly; claude uses the
+    /// darkened `actVerb` (white on raw terracotta is under 4.5:1); Overview has
+    /// no identity hue → neutral wash with a primary label instead of a fill.
+    var pillFill: Color? {
+        switch self {
+        case .overview: return nil
+        case .claude: return Theme.actVerb
         case .codex: return Theme.codex
         }
     }
@@ -79,13 +91,13 @@ struct ProviderTabBar: View {
                     Image(systemName: tab.symbol).font(.system(size: 11))
                     Text(tab.title).font(.subheadline).fontWeight(selected ? .semibold : .regular)
                 }
-                underline(for: tab)
+                underline(for: tab, selected: selected)
             }
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity)
             .contentShape(RoundedRectangle(cornerRadius: 7))
         }
-        .buttonStyle(TabSegmentStyle(selected: selected, tint: tab.tint))
+        .buttonStyle(TabSegmentStyle(selected: selected, pillFill: tab.pillFill))
         // ⌘1/⌘2/⌘3 jump straight to a page.
         .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
         .accessibilityLabel("\(tab.title) tab")
@@ -96,10 +108,12 @@ struct ProviderTabBar: View {
     /// usage color ramp. Hidden (clear, height-preserving) when the tab has no
     /// harness or the harness has no active account — labels stay vertically
     /// aligned across segments. Decorative: the rows/detail read the real numbers.
-    @ViewBuilder private func underline(for tab: ProviderTab) -> some View {
+    @ViewBuilder private func underline(for tab: ProviderTab, selected: Bool) -> some View {
         // The hero window (5h when it exists, else weekly — codex is weekly-only
         // as of 2026-07), so the underline never goes blank just because a
-        // provider dropped its short window.
+        // provider dropped its short window. Hidden (height-preserving) on the
+        // SELECTED tab — codexbar's solid pill carries no underline; the open
+        // page shows the full bars — and on tabs with no active account.
         let active = tab.harness.flatMap { model.activeProfile(for: $0) }
         let pct = active?.heroWindow?.utilizationPct
         UsageBar(
@@ -108,25 +122,26 @@ struct ProviderTabBar: View {
             height: 3
         )
         .frame(width: 56)
-        .opacity(pct == nil ? 0 : 1)
+        .opacity(pct == nil || selected ? 0 : 1)
         .accessibilityHidden(true)
     }
 }
 
-/// Selected = the tab's identity hue (terracotta / codex blue; Overview neutral)
-/// as label tint on a matching wash; unselected = secondary label with the
-/// panel's quiet hover treatment (AccountRow's 0.045 idiom).
+/// Selected = codexbar's solid identity pill (white label on the provider hue;
+/// Overview: neutral wash + primary label); unselected = secondary label with
+/// the panel's quiet hover treatment (AccountRow's 0.045 idiom).
 private struct TabSegmentStyle: ButtonStyle {
     let selected: Bool
-    let tint: Color?
+    let pillFill: Color?
     @State private var hovering = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(selected ? (tint ?? Color.primary) : Color.secondary)
+            .foregroundStyle(
+                selected ? (pillFill == nil ? Color.primary : .white) : Color.secondary)
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(selected ? (tint ?? Color.primary).opacity(0.14)
+                    .fill(selected ? (pillFill ?? Color.primary.opacity(0.12))
                           : (hovering ? Color.primary.opacity(0.045) : .clear))
             )
             .onHover { hovering = $0 }
