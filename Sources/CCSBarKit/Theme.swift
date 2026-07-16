@@ -108,11 +108,15 @@ struct UsageBar: View {
     /// 100 (the sink / no-threshold windows) are suppressed — a tick at the bar end
     /// is noise.
     var threshold: Double? = nil
+    /// Track color override — the default near-invisible neutral works on the
+    /// panel background; a bar sitting ON a solid brand fill (the selected
+    /// provider pill) passes a translucent white instead.
+    var track: Color = Theme.track
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Theme.track)
+                Capsule().fill(track)
                 Capsule()
                     .fill(color)
                     .frame(width: max(0, min(1, pct / 100)) * geo.size.width)

@@ -115,18 +115,22 @@ struct ProviderTabBar: View {
     @ViewBuilder private func underline(for tab: ProviderTab, selected: Bool) -> some View {
         // The hero window (5h when it exists, else weekly — codex is weekly-only
         // as of 2026-07), so the underline never goes blank just because a
-        // provider dropped its short window. Hidden (height-preserving) on the
-        // SELECTED tab — codexbar's solid pill carries no underline; the open
-        // page shows the full bars — and on tabs with no active account.
+        // provider dropped its short window. On the SELECTED pill the usage-color
+        // ramp is illegible against the solid brand fill, so the bar switches to
+        // white-on-translucent-white there (length still carries the number);
+        // hidden only on tabs with no active account.
         let active = tab.harness.flatMap { model.activeProfile(for: $0) }
         let pct = active?.heroWindow?.utilizationPct
         UsageBar(
             pct: pct ?? 0,
-            color: pct.map { Theme.usageColor($0, threshold: active?.fallback?.threshold ?? 100) } ?? .clear,
-            height: 3
+            color: selected
+                ? .white
+                : (pct.map { Theme.usageColor($0, threshold: active?.fallback?.threshold ?? 100) } ?? .clear),
+            height: 3,
+            track: selected ? Color.white.opacity(0.3) : Theme.track
         )
         .frame(width: 56)
-        .opacity(pct == nil || selected ? 0 : 1)
+        .opacity(pct == nil ? 0 : 1)
         .accessibilityHidden(true)
     }
 }
