@@ -8,6 +8,9 @@ struct CodexProxyRow: View {
     @State private var routed = false
     @State private var serving = false
     @State private var error: String?
+    /// Hover expands the explainer in place (the TokensStrip idiom) —
+    /// `.help()` tooltips don't reliably surface inside a MenuBarExtra panel.
+    @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -26,26 +29,31 @@ struct CodexProxyRow: View {
                 Text(error).font(.caption2).foregroundStyle(Theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if hovering {
+                Text(explainer)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            }
         }
         .padding(.vertical, 5).padding(.horizontal, 8)
-        .help(
-            """
-            Route every codex session through clauth's local proxy (port 4517).
-
-            ON — in-session hot-swap: the account is injected per request, so a \
-            clauth account switch applies to RUNNING codex sessions instantly, and \
-            a rate-limited request rotates to the next pool account and replays \
-            before codex notices.
-            OFF — codex talks to OpenAI directly; account switches need a codex \
-            restart to take effect.
-
-            Takes effect for newly started sessions (a running session keeps the \
-            provider it launched with; `codex --profile proxy` opts one in \
-            manually). The switch always shows the file's real state — hand-edits \
-            to ~/.codex/config.toml are picked up on the next panel open.
-            """
-        )
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
         .onAppear(perform: refresh)
+    }
+
+    private var explainer: String {
+        routed
+            ? "New codex sessions route through clauth's proxy (:4517): the account "
+                + "is injected per request, so clauth switches apply to running "
+                + "sessions instantly (in-session hot-swap) and a rate-limited "
+                + "request rotates to the next account and replays. Running "
+                + "sessions keep the provider they launched with — restart codex "
+                + "to adopt."
+            : "Codex talks to OpenAI directly; account switches need a codex "
+                + "restart. Turn on for in-session hot-swap + rate-limit "
+                + "rotate-and-replay via clauth's local proxy (:4517). Applies to "
+                + "newly started sessions."
     }
 
     private var caption: String {
