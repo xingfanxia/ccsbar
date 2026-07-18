@@ -384,7 +384,17 @@ enum DaemonClient {
         }
         // Reached the daemon and delivered the command; an empty read is "went
         // quiet", NOT absence — sendCommand surfaces it instead of falling back.
-        return response.isEmpty ? .connectedNoReply : .reply(response)
+        // A NON-empty buffer without its newline terminator is a TRUNCATED
+        // reply (a >2s gap mid-reply hit the per-read timeout): the command
+        // was delivered and may have been applied, so it must ALSO surface as
+        // no-reply — feeding the fragment to classifyReply would fail JSON
+        // parsing, misread as .unreachable, and trigger the CLI double-apply
+        // fallback (timeout-sweep 2026-07-18; not reachable with today's
+        // single-atomic-write replies, closed as defense-in-depth).
+        if response.isEmpty || !response.contains(0x0A) {
+            return .connectedNoReply
+        }
+        return .reply(response)
     }
 
     // MARK: - Shell fallback
