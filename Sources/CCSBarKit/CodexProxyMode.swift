@@ -19,9 +19,10 @@ import Foundation
 /// an idle proxy's heartbeat goes stale on its own so the daemon's passive
 /// usage leg resumes.
 ///
-/// NOTE: config.toml is also managed by zylos (its own agent). If the toggle
-/// snaps back OFF on the next panel open, zylos reverted the edit — that
-/// arbitration belongs to the operator, not to ccsbar retry loops.
+/// NOTE: config.toml has other writers (zylos maintains its project trust
+/// entries; the operator hand-edits). State is therefore re-read from disk
+/// on every panel open rather than cached — an outside edit shows as the
+/// switch's real position, never a stale one.
 enum CodexProxyMode {
     static let proxyPort: UInt16 = 4517
 

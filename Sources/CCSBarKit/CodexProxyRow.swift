@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The codex page's "Proxy mode" switch (PROXY-1): one row under the strip,
 /// mirroring the panel's "Start at login" Toggle idiom. State is re-read from
-/// disk on every panel open — if zylos (the config's other manager) reverts
-/// the edit, the switch visibly snaps back instead of lying.
+/// disk on every panel open — an outside edit of config.toml (operator or
+/// zylos's trust-entry maintenance) shows as the switch's real position.
 struct CodexProxyRow: View {
     @State private var routed = false
     @State private var serving = false
@@ -41,8 +41,8 @@ struct CodexProxyRow: View {
 
             Takes effect for newly started sessions (a running session keeps the \
             provider it launched with; `codex --profile proxy` opts one in \
-            manually). If the switch snaps back OFF by itself, zylos — which also \
-            manages ~/.codex/config.toml — reverted the edit; arbitrate there.
+            manually). The switch always shows the file's real state — hand-edits \
+            to ~/.codex/config.toml are picked up on the next panel open.
             """
         )
         .onAppear(perform: refresh)

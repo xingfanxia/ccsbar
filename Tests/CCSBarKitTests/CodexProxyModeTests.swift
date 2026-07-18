@@ -70,7 +70,7 @@ final class CodexProxyModeTests: XCTestCase {
     }
 
     func testCommentedRoutingLineDoesNotCount() {
-        // The live 2026-07-18 shape: zylos neutralized the block by
+        // The live 2026-07-18 shape: the operator neutralized the block by
         // commenting it out — that must read as OFF, and re-enabling must
         // produce a real routing line.
         let commented = direct + "\n# model_provider = \"clauth\"\n# [model_providers.clauth]\n"
