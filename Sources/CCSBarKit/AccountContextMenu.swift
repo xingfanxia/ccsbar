@@ -54,6 +54,15 @@ struct AccountContextMenu: View {
                 model.reauth(p.name)
             }
             .disabled(model.reauthInFlight != nil)
+            // CLA-SPLIT: install/replace the static long-lived session token
+            // (`claude setup-token` mint). Opens the paste banner; verb-aware
+            // so replacing an existing sidecar reads as what it is.
+            Button(SessionToken.state(profile: p.name) == .none
+                ? "Install session token…" : "Replace session token…") {
+                model.inspect(p.name)
+                model.beginSetupToken(p.name)
+            }
+            .disabled(model.reauthInFlight != nil)
         } else if p.isCodex {
             // TABS-1: a codex profile has TWO recovery doors — a fresh PKCE browser
             // sign-in, or the instant re-capture of whatever login codex currently

@@ -23,6 +23,21 @@ struct DetailCard: View {
                     .truncationMode(.middle)
                     .textSelection(.enabled)
             }
+            // CLA-SPLIT: sessions on this account run on a static setup-token
+            // mint — surface it and its ~1yr horizon (WARNING inside 30 days,
+            // DANGER + re-mint hint once expired). Read from the sidecar per
+            // render; nothing shows for profiles without one.
+            if p.provider == "anthropic",
+               let line = SessionToken.statusLine(
+                   SessionToken.state(profile: p.name),
+                   nowMs: Int64(Date().timeIntervalSince1970 * 1000)
+               ) {
+                Text(line.text)
+                    .font(.caption)
+                    .foregroundStyle(line.tone == .danger ? Theme.danger
+                        : line.tone == .warning ? Theme.warning : .secondary)
+                    .lineLimit(1)
+            }
             // Codex profiles (provider "openai") carry %-windows (INT-2) so they
             // take a window path, not the third-party availability card — but
             // their window SET is dynamic (weekly-only since 2026-07, OpenAI

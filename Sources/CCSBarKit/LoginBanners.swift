@@ -76,6 +76,61 @@ struct RenameBanner: View {
     }
 }
 
+// MARK: - Session-token capture banner (CLA-SPLIT)
+
+/// The inline setup-token editor: instructions naming the exact terminal
+/// command, a SecureField for the mint (a bearer credential — never echoed),
+/// live validation echoing clauth's `validate_setup_token`, and
+/// Install/Cancel. The pasted value lives only in this view's `@State` until
+/// the spawn pipes it to clauth's stdin.
+struct SetupTokenBanner: View {
+    @ObservedObject var model: StatusModel
+    let name: String
+    @State private var token: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Install session token for \(name)").font(.subheadline).fontWeight(.medium)
+            Text("Run `claude setup-token` in a terminal, finish its browser flow, then paste the minted token here.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 6) {
+                SecureField("sk-ant-…", text: $token)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit(commit)
+                Button("Cancel") { model.cancelSetupToken() }.controlSize(.small)
+                Button("Install", action: commit).controlSize(.small)
+                    .tint(Theme.accent)
+                    .disabled(commitDisabled)
+                    .keyboardShortcut(.return, modifiers: [])
+            }
+            if let err = SessionToken.validationError(token) {
+                Text(err).font(.caption).foregroundStyle(Theme.danger)
+            } else {
+                Text("Sessions on this account then run on the static ~1-year token; it takes effect on the next switch.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.bottom, 6)
+        .onAppear { focused = true }
+    }
+
+    private var commitDisabled: Bool {
+        SessionToken.trimmed(token) == nil || model.loginInFlight != nil
+    }
+
+    private func commit() {
+        guard !commitDisabled else { return }
+        model.installSetupToken(name, token: token)
+        token = ""
+    }
+}
+
 // MARK: - Add-account banner
 
 /// The inline add-account editor: a name TextField, live client-side validation

@@ -1,0 +1,88 @@
+import Foundation
+import Testing
+@testable import CCSBarKit
+
+// CLA-SPLIT surfacing: the sidecar reader, the paste validator (echoing
+// clauth's `validate_setup_token`), the status-line copy/tone ladder, and the
+// spawn argv. All pure/local — no clauth spawn, no real ~/.clauth touched.
+
+@Suite struct SessionTokenTests {
+    private func tempSidecar(_ json: String?) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ccsbar-st-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("session-token.json")
+        if let json { try Data(json.utf8).write(to: url) }
+        return url
+    }
+
+    @Test func sidecarStatesDistinguishMissingUnstampedAndStamped() throws {
+        let missing = try tempSidecar(nil)
+        #expect(SessionToken.state(at: missing) == .none)
+
+        let unstamped = try tempSidecar(#"{"claudeAiOauth":{"accessToken":"sk-ant-x"}}"#)
+        #expect(SessionToken.state(at: unstamped) == .unstamped)
+
+        // Corrupt JSON is "present, horizon unknown" — never hidden as .none.
+        let corrupt = try tempSidecar("not json")
+        #expect(SessionToken.state(at: corrupt) == .unstamped)
+
+        let stamped = try tempSidecar(
+            #"{"claudeAiOauth":{"accessToken":"sk-ant-x","expiresAt":1700000000000}}"#)
+        #expect(SessionToken.state(at: stamped) == .expires(msEpoch: 1_700_000_000_000))
+    }
+
+    @Test func validatorEchoesClauthsRule() {
+        let good = "sk-ant-oat01-" + String(repeating: "x", count: 48)
+        #expect(SessionToken.validationError("  \(good)\n") == nil)
+        #expect(SessionToken.trimmed("  \(good)\n") == good)
+        // Untouched field: no error yet, but also nothing to submit.
+        #expect(SessionToken.validationError("") == nil)
+        #expect(SessionToken.trimmed("") == nil)
+        #expect(SessionToken.validationError("api-key-" + String(repeating: "x", count: 40)) != nil)
+        #expect(SessionToken.validationError("Setup token: \(good)") != nil)
+        #expect(SessionToken.validationError("sk-ant-short") != nil)
+    }
+
+    @Test func statusLineCountsDownAndEscalates() {
+        let day: Int64 = 86_400_000
+        let now: Int64 = 1_700_000_000_000
+
+        #expect(SessionToken.statusLine(.none, nowMs: now) == nil)
+
+        let comfy = SessionToken.statusLine(.expires(msEpoch: now + 340 * day), nowMs: now)
+        #expect(comfy?.text.contains("expires in ~340d") == true)
+        #expect(comfy?.tone == .normal)
+
+        let soon = SessionToken.statusLine(.expires(msEpoch: now + 12 * day), nowMs: now)
+        #expect(soon?.text.contains("expires in ~12d") == true)
+        #expect(soon?.tone == .warning)
+
+        let dead = SessionToken.statusLine(.expires(msEpoch: now - day), nowMs: now)
+        #expect(dead?.text.contains("re-mint: claude setup-token") == true)
+        #expect(dead?.tone == .danger)
+
+        let unstamped = SessionToken.statusLine(.unstamped, nowMs: now)
+        #expect(unstamped?.text.contains("no recorded expiry") == true)
+        #expect(unstamped?.tone == .normal)
+    }
+
+    @Test func spawnArgvPipesTokenViaStdinNeverArgv() {
+        // `--yes` because a non-TTY spawn can never answer the replace-confirm;
+        // the token itself must never appear in the argv (visible in `ps`).
+        let args = DaemonClient.setupTokenArgs("ax-main")
+        #expect(args == ["login", "ax-main", "--setup-token", "--yes"])
+        #expect(!args.contains { $0.hasPrefix("sk-ant-") })
+    }
+
+    @Test func flightBannerAndFailureCopyAreSetupTokenAware() {
+        #expect(LoginFlight(name: "ax", mode: .setupToken).bannerText
+            == "Installing session token for ax…")
+        let failure = StatusModel.loginFailureMessage(
+            .daemonError(code: "cli_failed", message: "clauth login exited 1"),
+            name: "ax", mode: .setupToken)
+        #expect(failure?.contains("session token") == true)
+        #expect(failure?.contains("--setup-token") == true)
+        #expect(StatusModel.loginFailureMessage(.ok, name: "ax", mode: .setupToken) == nil)
+    }
+}

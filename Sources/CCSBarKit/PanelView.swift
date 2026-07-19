@@ -49,6 +49,9 @@ struct PanelView: View {
         if let harness = model.addingHarness {
             AddAccountBanner(model: model, harness: harness)
         }
+        if let name = model.settingSetupToken {
+            SetupTokenBanner(model: model, name: name)
+        }
         ProviderTabBar(model: model)
         Divider().padding(.horizontal, 12).padding(.top, 6)
         switch model.tab {

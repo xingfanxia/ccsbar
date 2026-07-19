@@ -9,6 +9,10 @@ enum LoginMode: Equatable, Sendable {
     case browser
     /// Codex-only: capture the live `~/.codex/auth.json` verbatim (`--codex`).
     case capture
+    /// Claude-only: pipe a pasted `claude setup-token` mint into the profile's
+    /// session-token sidecar (`--setup-token --yes`, token on stdin). Instant
+    /// and local — no browser opens.
+    case setupToken
 }
 
 /// One in-flight `clauth login` spawn: which profile, acquired how. Single-flight
@@ -21,9 +25,11 @@ struct LoginFlight: Equatable, Sendable {
     /// unit-tested: a capture (instant, no browser) must never send the user
     /// hunting for a browser window that never opened.
     var bannerText: String {
-        mode == .capture
-            ? "Capturing current codex login into \(name)…"
-            : "Signing in to \(name) — finish in your browser…"
+        switch mode {
+        case .capture: "Capturing current codex login into \(name)…"
+        case .setupToken: "Installing session token for \(name)…"
+        case .browser: "Signing in to \(name) — finish in your browser…"
+        }
     }
 }
 
@@ -222,16 +228,59 @@ extension StatusModel {
         let cli = "clauth login \(name)"
             + (codex ? " --codex" : "")
             + (codex && mode == .browser ? " --browser" : "")
+            + (mode == .setupToken ? " --setup-token" : "")
         switch outcome {
         case .ok:
             return nil
         case .daemonError(_, let message):
+            if mode == .setupToken {
+                return "Couldn't install the session token (\(message)). Re-check the paste, or run `\(cli)` in a terminal."
+            }
             if codex && mode == .capture {
                 return "Couldn't capture the codex login (\(message)). Is codex signed in? Or run `\(cli)` in a terminal."
             }
             return "Sign-in didn't complete (\(message)). Try again, or run `\(cli)` in a terminal."
         case .unreachable:
             return "Couldn't find the clauth binary. Run `\(cli)` in a terminal."
+        }
+    }
+
+    // MARK: - Session-token capture (CLA-SPLIT)
+
+    /// Open / close the inline "Install session token" editor for a profile.
+    func beginSetupToken(_ name: String) { settingSetupToken = name }
+    func cancelSetupToken() { settingSetupToken = nil }
+
+    /// Pipe a pasted `claude setup-token` mint into `clauth login <name>
+    /// --setup-token --yes` (stdin — never argv, never logged). Shares the
+    /// single-login in-flight guard with every other login surface. On
+    /// success the CLI wrote the sidecar; switches install it from now on,
+    /// and the DetailCard's status line picks it up on the next render.
+    /// `run` is injected so outcome routing is testable without spawning.
+    func installSetupToken(
+        _ name: String,
+        token: String,
+        run: (@Sendable (String, String) async -> CommandOutcome)? = nil
+    ) {
+        guard loginInFlight == nil else { return } // one login at a time
+        guard let trimmed = SessionToken.trimmed(token) else {
+            showError("That paste doesn't look like a `claude setup-token` mint.")
+            return
+        }
+        let runner = run ?? { await DaemonClient.installSetupToken($0, token: $1) }
+        settingSetupToken = nil
+        loginInFlight = LoginFlight(name: name, mode: .setupToken)
+        lastCommandError = nil
+        errorClearTask?.cancel()
+        Task { [weak self] in
+            let outcome = await runner(name, trimmed)
+            guard let self else { return }
+            self.loginInFlight = nil
+            if let message = Self.loginFailureMessage(outcome, name: name, mode: .setupToken) {
+                self.showError(message)
+            } else if self.daemonReachable {
+                self.refresh(name)
+            }
         }
     }
 

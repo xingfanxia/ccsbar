@@ -441,6 +441,46 @@ enum DaemonClient {
         return args
     }
 
+    /// The argv for the session-token capture (CLA-SPLIT): `--yes` because a
+    /// non-TTY spawn can never answer the replace-confirm, mirroring `--new`'s
+    /// role in the add flow. Pure and unit-tested.
+    static func setupTokenArgs(_ name: String) -> [String] {
+        ["login", name, "--setup-token", "--yes"]
+    }
+
+    /// Pipe a pasted `claude setup-token` mint into
+    /// `clauth login <name> --setup-token --yes` — the CLI's non-TTY stdin
+    /// path. The token goes ONLY down the pipe (never argv, so never visible
+    /// in `ps`; never logged); the CLI validates it authoritatively and owns
+    /// the sidecar write. Instant and local — no browser, no socket — so it
+    /// works with the daemon up or down, like every other login spawn.
+    static func installSetupToken(_ name: String, token: String) async -> CommandOutcome {
+        guard let bin = clauthBinary() else { return .unreachable }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: bin)
+        proc.arguments = setupTokenArgs(name)
+        let stdin = Pipe()
+        proc.standardInput = stdin
+        return await withCheckedContinuation { (cont: CheckedContinuation<CommandOutcome, Never>) in
+            proc.terminationHandler = { p in
+                let status = p.terminationStatus
+                cont.resume(returning: status == 0
+                    ? .ok
+                    : .daemonError(code: "cli_failed", message: "clauth login exited \(status)"))
+            }
+            do {
+                try proc.run()
+                stdin.fileHandleForWriting.write(Data((token + "\n").utf8))
+                stdin.fileHandleForWriting.closeFile()
+            } catch {
+                // Never started → the termination handler won't fire; resume here once.
+                proc.terminationHandler = nil
+                cont.resume(returning: .daemonError(
+                    code: "cli_failed", message: "could not run clauth: \(error.localizedDescription)"))
+            }
+        }
+    }
+
     /// Run `clauth login <name>` — the self-contained login flow. Since clauth
     /// v0.8.0 this ONE verb serves BOTH ccsbar login surfaces: a NEW `name` CREATES
     /// the profile, an EXISTING `name` re-authenticates it (clearing its

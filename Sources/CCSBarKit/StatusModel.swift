@@ -97,6 +97,9 @@ final class StatusModel: ObservableObject {
     @Published var addingHarness: Harness?
     /// Whether the inline add editor is open (pre-TABS-1 alias over `addingHarness`).
     var addingAccount: Bool { addingHarness != nil }
+    /// The profile whose inline "Install session token" editor is open (CLA-SPLIT
+    /// capture surface), or nil when closed.
+    @Published var settingSetupToken: String?
     /// The machine-wide token snapshot (TOK-4) from `~/.clauth/tokens.json`, or nil
     /// when the file is missing / a newer schema / corrupt. Read inside the existing
     /// poll (no second timer); a nil hides the strip but NEVER blanks the panel.
