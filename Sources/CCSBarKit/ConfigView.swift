@@ -91,6 +91,13 @@ struct ConfigView: View {
                         valid: ChainEdit.parseFiveHourThreshold(model.thresholdDraft) != nil,
                         help: "0–100, whole percent"
                     )
+                } else if model.thresholdEdit == .memberWeekly(p.name) {
+                    // WKO: the member's own weekly line, typed via the context
+                    // menu's "Weekly limit here → Custom…" (same inline field).
+                    customThresholdField(
+                        valid: ChainEdit.parseMemberWeekly(model.thresholdDraft) != nil,
+                        help: "0–100, decimals allowed — this account's weekly line"
+                    )
                 } else {
                     thresholdMenu(for: p, fb: fb)
                 }

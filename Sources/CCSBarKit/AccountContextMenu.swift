@@ -54,11 +54,11 @@ struct AccountContextMenu: View {
                 model.reauth(p.name)
             }
             .disabled(model.reauthInFlight != nil)
-            // CLA-SPLIT: install/replace the static long-lived session token
-            // (`claude setup-token` mint). Opens the paste banner; verb-aware
-            // so replacing an existing sidecar reads as what it is.
+            // CLA-SPLIT: install/replace the long-lived token (`claude
+            // setup-token` mint). Opens the paste banner; verb-aware so
+            // replacing an existing sidecar reads as what it is.
             Button(SessionToken.state(profile: p.name) == .none
-                ? "Install session token…" : "Replace session token…") {
+                ? "Install long-lived token…" : "Replace long-lived token…") {
                 model.inspect(p.name)
                 model.beginSetupToken(p.name)
             }
@@ -135,6 +135,67 @@ struct AccountContextMenu: View {
                 }
             }
             .disabled(!reachable)
+
+            // WKO: this member's own weekly line (clauth set_member_weekly).
+            // The chain-wide `Weekly limit` (Configure disclosure) stays the
+            // default; an override replaces it for this account only. Claude
+            // members only — codex members have no weekly-line judgment.
+            if !p.isCodex {
+                Menu(ChainEdit.memberWeeklyMenuLabel) {
+                    Button {
+                        model.setMemberWeekly(p.name, nil)
+                    } label: {
+                        let follow = ChainEdit.followChainDefaultLabel(
+                            status.weeklySwitchThreshold ?? ChainEdit.defaultWeeklyLine)
+                        if fb.weeklyThreshold == nil {
+                            Label(follow, systemImage: "checkmark")
+                        } else {
+                            Text(follow)
+                        }
+                    }
+                    Divider()
+                    ForEach(ChainEdit.weeklyPresets, id: \.self) { v in
+                        Button {
+                            model.setMemberWeekly(p.name, v)
+                        } label: {
+                            if fb.weeklyThreshold == v {
+                                Label(ChainEdit.weeklyLabel(v), systemImage: "checkmark")
+                            } else {
+                                Text(ChainEdit.weeklyLabel(v))
+                            }
+                        }
+                    }
+                    Divider()
+                    Button(ChainEdit.customLabel) {
+                        model.beginThresholdEdit(
+                            .memberWeekly(p.name),
+                            current: fb.weeklyThreshold.map { "\(Int($0))" } ?? "")
+                    }
+                }
+                .disabled(!reachable)
+
+                // SCW-2 per-account usage gates — checkmark = the check applies.
+                Button {
+                    model.setCheckWeekly(p.name, !fb.checkWeekly)
+                } label: {
+                    if fb.checkWeekly {
+                        Label(ChainEdit.weeklyGateLabel, systemImage: "checkmark")
+                    } else {
+                        Text(ChainEdit.weeklyGateLabel)
+                    }
+                }
+                .disabled(!reachable)
+                Button {
+                    model.setCheckScoped(p.name, !fb.checkScoped)
+                } label: {
+                    if fb.checkScoped {
+                        Label(ChainEdit.scopedGateLabel, systemImage: "checkmark")
+                    } else {
+                        Text(ChainEdit.scopedGateLabel)
+                    }
+                }
+                .disabled(!reachable)
+            }
 
             Button("Move up") { model.fallbackMove(p.name, up: true) }
                 .disabled(!reachable || fb.position <= 1)

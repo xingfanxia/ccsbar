@@ -60,6 +60,34 @@ enum ChainEdit {
     /// The one-line legend under the weekly control: what the number MEANS.
     static let weeklyLegend = "Auto-switch treats an account past this share of its weekly (7d) window as spent — it leaves early instead of bricking for days at 100%."
 
+    /// Legal band for a member's weekly-line override — mirrors the daemon
+    /// socket's `set_member_weekly` validation (0…100, decimals allowed).
+    static let memberWeeklyRange: ClosedRange<Double> = 0...100
+
+    /// Parse a typed member weekly override. `nil` = invalid (keep the field
+    /// open); an EMPTY string is NOT handled here — the clear affordance is
+    /// the explicit "Follow chain default" menu item.
+    static func parseMemberWeekly(_ raw: String) -> Double? {
+        guard let v = Double(raw.trimmingCharacters(in: .whitespaces)),
+              v.isFinite, memberWeeklyRange.contains(v) else { return nil }
+        return v
+    }
+
+    /// The member weekly submenu title + follow-default item (§7 outcome
+    /// language: the chain-wide value stays the default; an override replaces
+    /// it for this account only).
+    static let memberWeeklyMenuLabel = "Weekly limit here"
+    static func followChainDefaultLabel(_ chainDefault: Double) -> String {
+        "Follow chain default (\(weeklyLabel(chainDefault)))"
+    }
+
+    /// The per-member usage-gate labels + legends (SCW-2). Gate ON = the
+    /// check applies; OFF = that judgment is skipped for this account.
+    static let weeklyGateLabel = "Check weekly usage"
+    static let weeklyGateLegend = "Off: this account ignores the soft weekly line when auto-switching — only the 100% hard cap blocks it."
+    static let scopedGateLabel = "Check per-model weekly (7d fable)"
+    static let scopedGateLegend = "On: a spent per-model week (e.g. 7d fable) takes this account out of rotation; off: it keeps rotating for other models."
+
     /// The menu/editor affordance label for a free-typed value (§7).
     static let customLabel = "Custom…"
 

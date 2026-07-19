@@ -216,6 +216,37 @@ enum DaemonClient {
         send(["cmd": "set_last_resort", "profile": profile, "value": value])
     }
 
+    /// Set (or clear, `nil`) a member's per-account weekly-line override
+    /// (clauth `set_member_weekly`; the chain-wide `set_weekly_threshold`
+    /// value stays the default). Old-daemon contract as `setLastResort`.
+    @discardableResult
+    static func setMemberWeekly(_ profile: String, _ value: Double?) -> CommandOutcome {
+        setMemberWeekly(profile, value, send: { sendCommand($0) })
+    }
+
+    /// Testable seam: the daemon clears on an explicit JSON null, so `nil`
+    /// must encode as `NSNull`, never by dropping the key silently.
+    static func setMemberWeekly(
+        _ profile: String, _ value: Double?,
+        send: ([String: Any]) -> CommandOutcome
+    ) -> CommandOutcome {
+        send(["cmd": "set_member_weekly", "profile": profile, "value": value ?? NSNull()])
+    }
+
+    /// Flip a member's `weekly gate` (clauth `set_check_weekly`): whether
+    /// auto-switching checks its aggregate weekly line at all.
+    @discardableResult
+    static func setCheckWeekly(_ profile: String, _ value: Bool) -> CommandOutcome {
+        sendCommand(["cmd": "set_check_weekly", "profile": profile, "value": value])
+    }
+
+    /// Flip a member's `scoped gate` (clauth `set_check_scoped`): whether a
+    /// spent per-model week (e.g. 7d fable) takes it out of rotation.
+    @discardableResult
+    static func setCheckScoped(_ profile: String, _ value: Bool) -> CommandOutcome {
+        sendCommand(["cmd": "set_check_scoped", "profile": profile, "value": value])
+    }
+
     /// Toggle wrap-off mode (switch every account off once the chain is spent).
     @discardableResult
     static func setWrapOff(_ on: Bool) -> CommandOutcome {

@@ -86,16 +86,16 @@ enum SessionToken {
         case .none:
             return nil
         case .unstamped:
-            return ("Static session token · no recorded expiry", .normal)
+            return ("Long-lived token · no recorded expiry", .normal)
         case .expires(let ms):
             let days = (ms - nowMs) / 86_400_000
             if days < 0 {
-                return ("Session token expired — re-mint: claude setup-token", .danger)
+                return ("Long-lived token expired — re-mint: claude setup-token", .danger)
             }
             if days <= 30 {
-                return ("Static session token · expires in ~\(days)d", .warning)
+                return ("Long-lived token · expires in ~\(days)d", .warning)
             }
-            return ("Static session token · expires in ~\(days)d", .normal)
+            return ("Long-lived token · expires in ~\(days)d", .normal)
         }
     }
 

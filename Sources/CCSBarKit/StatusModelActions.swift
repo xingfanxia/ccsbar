@@ -27,7 +27,7 @@ struct LoginFlight: Equatable, Sendable {
     var bannerText: String {
         switch mode {
         case .capture: "Capturing current codex login into \(name)…"
-        case .setupToken: "Installing session token for \(name)…"
+        case .setupToken: "Installing long-lived token for \(name)…"
         case .browser: "Signing in to \(name) — finish in your browser…"
         }
     }
@@ -68,6 +68,23 @@ extension StatusModel {
         run({ DaemonClient.setLastResort(name, on) },
             expecting: { $0.profiles.first { $0.name == name }?.fallback?.lastResort == on })
     }
+    /// Set (or clear, `nil` = follow the chain default) a member's weekly-line
+    /// override (clauth `set_member_weekly`). Old-daemon contract as the other
+    /// per-member edits: unknown cmd → loud error banner.
+    func setMemberWeekly(_ name: String, _ value: Double?) {
+        run({ DaemonClient.setMemberWeekly(name, value) },
+            expecting: { $0.profiles.first { $0.name == name }?.fallback?.weeklyThreshold == value })
+    }
+    /// Flip a member's weekly gate (clauth `set_check_weekly`).
+    func setCheckWeekly(_ name: String, _ on: Bool) {
+        run({ DaemonClient.setCheckWeekly(name, on) },
+            expecting: { $0.profiles.first { $0.name == name }?.fallback?.checkWeekly == on })
+    }
+    /// Flip a member's scoped gate (clauth `set_check_scoped`).
+    func setCheckScoped(_ name: String, _ on: Bool) {
+        run({ DaemonClient.setCheckScoped(name, on) },
+            expecting: { $0.profiles.first { $0.name == name }?.fallback?.checkScoped == on })
+    }
     func setWrapOff(_ on: Bool) {
         run({ DaemonClient.setWrapOff(on) }, expecting: { $0.wrapOff == on })
     }
@@ -100,6 +117,9 @@ extension StatusModel {
         case .weekly:
             guard let v = ChainEdit.parseWeeklyLine(thresholdDraft) else { return }
             setWeeklyThreshold(v)
+        case .memberWeekly(let name):
+            guard let v = ChainEdit.parseMemberWeekly(thresholdDraft) else { return }
+            setMemberWeekly(name, v)
         }
         thresholdEdit = nil
     }
@@ -234,7 +254,7 @@ extension StatusModel {
             return nil
         case .daemonError(_, let message):
             if mode == .setupToken {
-                return "Couldn't install the session token (\(message)). Re-check the paste, or run `\(cli)` in a terminal."
+                return "Couldn't install the long-lived token (\(message)). Re-check the paste, or run `\(cli)` in a terminal."
             }
             if codex && mode == .capture {
                 return "Couldn't capture the codex login (\(message)). Is codex signed in? Or run `\(cli)` in a terminal."

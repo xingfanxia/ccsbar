@@ -91,7 +91,7 @@ struct SetupTokenBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Install session token for \(name)").font(.subheadline).fontWeight(.medium)
+            Text("Install long-lived token for \(name)").font(.subheadline).fontWeight(.medium)
             Text("Run `claude setup-token` in a terminal, finish its browser flow, then paste the minted token here.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

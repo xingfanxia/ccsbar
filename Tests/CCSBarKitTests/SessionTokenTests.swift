@@ -77,11 +77,11 @@ import Testing
 
     @Test func flightBannerAndFailureCopyAreSetupTokenAware() {
         #expect(LoginFlight(name: "ax", mode: .setupToken).bannerText
-            == "Installing session token for ax…")
+            == "Installing long-lived token for ax…")
         let failure = StatusModel.loginFailureMessage(
             .daemonError(code: "cli_failed", message: "clauth login exited 1"),
             name: "ax", mode: .setupToken)
-        #expect(failure?.contains("session token") == true)
+        #expect(failure?.contains("long-lived token") == true)
         #expect(failure?.contains("--setup-token") == true)
         #expect(StatusModel.loginFailureMessage(.ok, name: "ax", mode: .setupToken) == nil)
     }

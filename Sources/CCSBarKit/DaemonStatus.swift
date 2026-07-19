@@ -308,10 +308,22 @@ struct FallbackInfo: Codable, Sendable {
     /// daemons, decoded as `false`. Drives `ForecastEngine`'s pass 2 in the
     /// fallback (no-published-forecast) path.
     let lastResort: Bool
+    /// SCW-2 per-account usage gates (clauth `check_weekly`/`check_scoped`):
+    /// whether auto-switching checks this member's aggregate weekly line /
+    /// per-model weekly windows. Additive — absent on older daemons, decoded
+    /// as the clauth default (ON).
+    let checkWeekly: Bool
+    let checkScoped: Bool
+    /// WKO per-account weekly-line override; `nil` = follows the chain-wide
+    /// `weeklySwitchThreshold`.
+    let weeklyThreshold: Double?
 
     enum CodingKeys: String, CodingKey {
         case position, threshold, armed
         case lastResort = "last_resort"
+        case checkWeekly = "check_weekly"
+        case checkScoped = "check_scoped"
+        case weeklyThreshold = "weekly_threshold"
     }
 
     init(from decoder: Decoder) throws {
@@ -320,6 +332,9 @@ struct FallbackInfo: Codable, Sendable {
         threshold = try c.decode(Double.self, forKey: .threshold)
         armed = try c.decode(Bool.self, forKey: .armed)
         lastResort = try c.decodeIfPresent(Bool.self, forKey: .lastResort) ?? false
+        checkWeekly = try c.decodeIfPresent(Bool.self, forKey: .checkWeekly) ?? true
+        checkScoped = try c.decodeIfPresent(Bool.self, forKey: .checkScoped) ?? true
+        weeklyThreshold = try c.decodeIfPresent(Double.self, forKey: .weeklyThreshold)
     }
 }
 

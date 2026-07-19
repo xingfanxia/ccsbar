@@ -570,4 +570,6 @@ final class StatusModel: ObservableObject {
 enum ThresholdEditTarget: Equatable {
     case fiveHour(String)
     case weekly
+    /// A member's per-account weekly-line override (`set_member_weekly`).
+    case memberWeekly(String)
 }
