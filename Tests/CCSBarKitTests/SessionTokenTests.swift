@@ -30,6 +30,21 @@ import Testing
         let stamped = try tempSidecar(
             #"{"claudeAiOauth":{"accessToken":"sk-ant-x","expiresAt":1700000000000}}"#)
         #expect(SessionToken.state(at: stamped) == .expires(msEpoch: 1_700_000_000_000))
+
+        // A refresh token means a rotating pair — clauth disengages the split
+        // for it, so the state must read mis-filled EVEN with a stamped expiry
+        // (the 2026-07-20 incident: the stamp displayed "~342d" while the
+        // protection was not in force).
+        let misfilled = try tempSidecar(
+            #"{"claudeAiOauth":{"accessToken":"sk-ant-x","refreshToken":"sk-ant-r","expiresAt":1700000000000}}"#)
+        #expect(SessionToken.state(at: misfilled) == .misfilled)
+    }
+
+    @Test func misfilledSidecarReadsDangerNotCountdown() {
+        let line = SessionToken.statusLine(.misfilled, nowMs: 1_700_000_000_000)
+        #expect(line?.tone == .danger)
+        #expect(line?.text.contains("mis-filled") == true)
+        #expect(line?.text.contains("expires in") != true)
     }
 
     @Test func validatorEchoesClauthsRule() {

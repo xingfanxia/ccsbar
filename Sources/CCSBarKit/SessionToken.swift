@@ -23,6 +23,13 @@ enum SessionTokenState: Equatable {
     case unstamped
     /// Sidecar present with its recorded epoch-ms horizon.
     case expires(msEpoch: Int64)
+    /// Sidecar holds a ROTATING pair (refresh token present) — a mis-fill,
+    /// not a `claude setup-token` mint. clauth DISENGAGES the split for it
+    /// (switches install the normal rotating credentials), so displaying the
+    /// stamped expiry would claim a protection that is not in force — the
+    /// 2026-07-20 incident: ccsbar showed "expires in ~342d" while sessions
+    /// died the rotating-pair refresh-race death the split exists to prevent.
+    case misfilled
 }
 
 enum SessionToken {
@@ -42,13 +49,21 @@ enum SessionToken {
     static func state(at url: URL) -> SessionTokenState {
         guard FileManager.default.fileExists(atPath: url.path) else { return .none }
         struct Sidecar: Decodable {
-            struct OAuth: Decodable { let expiresAt: Int64? }
+            struct OAuth: Decodable {
+                let expiresAt: Int64?
+                let refreshToken: String?
+            }
             let claudeAiOauth: OAuth?
         }
         guard let data = try? Data(contentsOf: url),
-              let sidecar = try? JSONDecoder().decode(Sidecar.self, from: data),
-              let ms = sidecar.claudeAiOauth?.expiresAt
+              let sidecar = try? JSONDecoder().decode(Sidecar.self, from: data)
         else { return .unstamped }
+        // Mirrors clauth's `session_token_status`: a refresh token means a
+        // rotating pair, and the split never engages on one — surface THAT,
+        // not the (meaningless) stamped expiry. Only presence is checked; the
+        // value is never kept.
+        if sidecar.claudeAiOauth?.refreshToken != nil { return .misfilled }
+        guard let ms = sidecar.claudeAiOauth?.expiresAt else { return .unstamped }
         return .expires(msEpoch: ms)
     }
 
@@ -85,6 +100,11 @@ enum SessionToken {
         switch state {
         case .none:
             return nil
+        case .misfilled:
+            return (
+                "Long-lived token mis-filled (rotating pair) — not in effect; re-capture via Install token…",
+                .danger
+            )
         case .unstamped:
             return ("Long-lived token · no recorded expiry", .normal)
         case .expires(let ms):
