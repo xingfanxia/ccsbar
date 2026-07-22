@@ -58,6 +58,31 @@ final class ExhaustionTests: XCTestCase {
         XCTAssertNil(try profile(fiveH: 99.4, sevenD: 99.4).spentTag)
     }
 
+    /// A maxed window whose recorded reset has PASSED no longer wears the pill —
+    /// the cap already lifted server-side; only the snapshot is stale (the
+    /// parked-codex case: no live session refreshes the cache, so ax-codex-xfx
+    /// wore "week spent" days after its reset). A future reset keeps the pill;
+    /// a missing reset stays conservative (spent).
+    func testPassedResetLiftsTheSpentPill() throws {
+        func profile(sevenD: Double, resetsAt: String?) throws -> ProfileStatus {
+            let reset = resetsAt.map { ",\"resets_at\":\"\($0)\"" } ?? ""
+            let json = """
+            {"name":"acct","active":false,"provider":"anthropic","windows":[{"label":"7d","utilization_pct":\(sevenD)\(reset)}]}
+            """
+            return try JSONDecoder().decode(ProfileStatus.self, from: Data(json.utf8))
+        }
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime]
+        let past = fmt.string(from: Date().addingTimeInterval(-3600))
+        let future = fmt.string(from: Date().addingTimeInterval(3600))
+
+        XCTAssertNil(try profile(sevenD: 100, resetsAt: past).spentTag,
+                     "reset passed — the cached 100% is history, not a cap")
+        XCTAssertEqual(try profile(sevenD: 100, resetsAt: future).spentTag, "week spent")
+        XCTAssertEqual(try profile(sevenD: 100, resetsAt: nil).spentTag, "week spent",
+                       "unknown reset stays conservative")
+    }
+
     func testFableOnlyCapIsNotSpent() throws {
         // A maxed Fable-trial window with 5h/7d headroom is deliberately NOT "spent" —
         // the account still serves non-Fable requests. Characterization: pin it so a
