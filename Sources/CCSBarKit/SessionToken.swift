@@ -98,11 +98,16 @@ enum SessionToken {
     /// documented lifetime, not a server figure.
     ///
     /// CLA-FEED (`fed`, from status.json `session_feed`): the daemon
-    /// re-stamps this sidecar from the usage chain on every rotation, so an
-    /// hours-scale expiry is routine maintenance — rendered as a calm
-    /// refresh countdown, never the mint's 30-day warning ramp. Expired
-    /// stays DANGER either way (a fed token past its stamp means the feeder
-    /// is dead — the honest countdown exists to expose exactly that), and a
+    /// re-stamps this sidecar from the usage chain on every rotation AND —
+    /// since clauth EXP-2 (2026-07-23) — on a freshness timer that re-feeds
+    /// two hours ahead of the stamp, so an hours-scale expiry is routine
+    /// maintenance rendered as a calm refresh countdown, never the mint's
+    /// 30-day warning ramp. The timer changes what a low countdown means:
+    /// the steady state never drops below ~2h, so <1h left = the re-feed
+    /// leg has been failing for a while (daemon down, lease lost, chain
+    /// trouble) — WARNING, the RC-C precursor made visible. Expired stays
+    /// DANGER either way (a fed token past its stamp means the feeder is
+    /// dead — the honest countdown exists to expose exactly that), and a
     /// mis-fill overrides the feed entirely.
     static func statusLine(_ state: SessionTokenState, nowMs: Int64, fed: Bool = false) -> (text: String, tone: Tone)? {
         switch state {
@@ -136,7 +141,12 @@ enum SessionToken {
                     // next rotation / switch.
                     return ("Static mint · feed arms on next rotation", .normal)
                 }
-                return (hours < 1 ? "Fed token · refreshes in <1h" : "Fed token · refreshes in ~\(hours)h", .normal)
+                if hours < 1 {
+                    // The EXP-2 re-feed timer keeps the steady state above
+                    // ~2h; getting this low means re-feeds keep failing.
+                    return ("Fed token · re-feed overdue (<1h left)", .warning)
+                }
+                return ("Fed token · refreshes in ~\(hours)h", .normal)
             }
             if nowMs >= ms {
                 return ("Long-lived token expired — re-mint: claude setup-token", .danger)

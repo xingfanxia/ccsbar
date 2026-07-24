@@ -90,7 +90,9 @@ import Testing
 
     // CLA-FEED: a daemon-fed sidecar's hours-scale expiry is routine
     // maintenance — calm countdown, never the mint's 30-day warning ramp;
-    // expired = the feeder is dead (DANGER); a mis-fill overrides the feed.
+    // <1h left = the EXP-2 re-feed timer (which restamps 2h ahead) has been
+    // failing → WARNING; expired = the feeder is dead (DANGER); a mis-fill
+    // overrides the feed.
     @Test func fedTokenRendersMaintenanceNotADyingMint() {
         let now: Int64 = 1_700_000_000_000
         let hour: Int64 = 3_600_000
@@ -100,8 +102,8 @@ import Testing
         #expect(fed?.tone == .normal)
 
         let subHour = SessionToken.statusLine(.expires(msEpoch: now + hour / 2), nowMs: now, fed: true)
-        #expect(subHour?.text == "Fed token · refreshes in <1h")
-        #expect(subHour?.tone == .normal)
+        #expect(subHour?.text == "Fed token · re-feed overdue (<1h left)")
+        #expect(subHour?.tone == .warning)
 
         // A mint-shaped horizon under the feed flag: the static mint still
         // serves until the feed supersedes it.
