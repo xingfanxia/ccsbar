@@ -40,6 +40,9 @@ struct PanelView: View {
         if let prompt = model.pendingRemovalPrompt {
             removalConfirmBanner(prompt)
         }
+        if let prompt = model.pendingDeletePrompt {
+            deleteConfirmBanner(prompt)
+        }
         if let flight = model.loginInFlight {
             LoginFlightBanner(flight: flight)
         }
@@ -159,6 +162,22 @@ struct PanelView: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Theme.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.bottom, 6)
+    }
+
+    // MARK: - Profile-delete confirm (danger tint — this one destroys credentials)
+
+    private func deleteConfirmBanner(_ prompt: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "trash.fill").foregroundStyle(Theme.danger)
+            Text(prompt).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            // Cancel is pure local state — never gated on daemon reachability.
+            Button("Cancel") { model.cancelDelete() }.controlSize(.small)
+            Button("Delete") { model.confirmDelete() }.controlSize(.small).tint(Theme.danger)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Theme.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 12).padding(.bottom, 6)
     }
 

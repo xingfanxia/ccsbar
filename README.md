@@ -208,6 +208,17 @@ Implemented (the CBAR-4 "Preflight" redesign):
   the `rename` socket command, which renames the profile dir + every reference and
   re-links the credential mirror if it's the active account (so a live session follows
   the rename). An invalid/taken name surfaces a loud error and never fires the socket.
+- **Delete an account** — the context-menu **"Delete account…"** arms a danger-tinted
+  confirm banner whose copy names every consequence (stored credentials go with the
+  profile; an ACTIVE account's live login is cleared; a chain member leaves the chain),
+  then spawns `clauth delete <name> --yes` — CLI-only and never `--force`, so a live
+  `clauth start` session keeps refusing it and clauth's own refusal lands in the error
+  banner verbatim.
+- **Inactive plans collapse** — accounts on a cancelled subscription (tier
+  `canceled`) or a lapsed codex plan (tier `free`) fold into a quiet
+  "N inactive accounts" disclosure at the foot of the list instead of taking a full
+  row each; the active account never collapses whatever its plan reads, and the
+  expansion choice persists.
 - **Machine-wide tokens strip (TOK-4/TOK-6)** — `~/.clauth/tokens.json` rendered as a
   hover-expanding spend summary; cache-inclusive counts with `+` floor markers, own
   schema gate + additive decode so a version gap hides the strip instead of crashing.

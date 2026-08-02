@@ -556,6 +556,52 @@ enum DaemonClient {
         }
     }
 
+    /// The argv for a profile delete: `--yes` because a non-TTY spawn can never
+    /// answer the CLI confirm — the panel's own armed confirm banner is the
+    /// deliberate step. NEVER `--force`: a profile with a live `clauth start`
+    /// session must keep being refused, and that refusal is surfaced verbatim
+    /// rather than overridden from a menu item. Pure and unit-tested.
+    static func deleteArgs(_ name: String) -> [String] {
+        ["delete", name, "--yes"]
+    }
+
+    /// Run `clauth delete <name> --yes` (CLI-only — the daemon socket carries no
+    /// delete verb, deliberately: a destructive command wants the CLI's own
+    /// guards, not a new socket surface). stderr is captured so a refusal
+    /// ("has a live session", "unknown profile") reaches the error banner as
+    /// clauth's own words instead of a bare exit code.
+    static func deleteProfile(_ name: String) async -> CommandOutcome {
+        guard let bin = clauthBinary() else { return .unreachable }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: bin)
+        proc.arguments = deleteArgs(name)
+        let stderr = Pipe()
+        proc.standardError = stderr
+        return await withCheckedContinuation { (cont: CheckedContinuation<CommandOutcome, Never>) in
+            proc.terminationHandler = { p in
+                let status = p.terminationStatus
+                if status == 0 {
+                    cont.resume(returning: .ok)
+                    return
+                }
+                let data = stderr.fileHandleForReading.readDataToEndOfFile()
+                let lines = String(decoding: data, as: UTF8.self)
+                    .split(separator: "\n").map(String.init)
+                let reason = lines.last(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
+                    ?? "clauth delete exited \(status)"
+                cont.resume(returning: .daemonError(code: "cli_failed", message: reason))
+            }
+            do {
+                try proc.run()
+            } catch {
+                // Never started → the termination handler won't fire; resume here once.
+                proc.terminationHandler = nil
+                cont.resume(returning: .daemonError(
+                    code: "cli_failed", message: "could not run clauth: \(error.localizedDescription)"))
+            }
+        }
+    }
+
     /// Run `clauth <args>` and report its outcome by exit status (TECH-11). Blocking
     /// (waits for exit) — only reached from the off-main-actor command path, and a
     /// switch's Keychain write is a couple seconds at most. Exit 0 → `.ok`; non-zero

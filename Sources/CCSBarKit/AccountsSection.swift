@@ -10,7 +10,30 @@ struct AccountsSection: View {
     let harness: Harness
     let dead: Bool
 
+    /// Whether the inactive-plan group is expanded. Persisted (shared across
+    /// both harness pages on purpose — "show me the dead weight" is one
+    /// preference, not two), default collapsed.
+    @AppStorage("showInactiveAccounts") private var showInactive = false
+
     private var profiles: [ProfileStatus] { model.profiles(for: harness) }
+
+    /// The split that drives the collapse: an account on a cancelled/lapsed
+    /// plan (`planInactive`) folds into the collapsed group — EXCEPT the
+    /// active account, which is never hidden whatever its plan is worth
+    /// (hiding what you're running on would be the panel lying). Static and
+    /// pure so the exclusion rule is unit-tested without a view.
+    static func partition(_ profiles: [ProfileStatus])
+        -> (current: [ProfileStatus], inactive: [ProfileStatus])
+    {
+        let inactive = profiles.filter { $0.planInactive && !$0.active }
+        let current = profiles.filter { !($0.planInactive && !$0.active) }
+        return (current, inactive)
+    }
+
+    private var inactive: [ProfileStatus] { Self.partition(profiles).inactive }
+    private var current: [ProfileStatus] { Self.partition(profiles).current }
+    /// The rows actually rendered, in stable file order within each half.
+    private var displayed: [ProfileStatus] { showInactive ? current + inactive : current }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -20,7 +43,7 @@ struct AccountsSection: View {
             if profiles.isEmpty {
                 emptyState.padding(.horizontal, 16).padding(.vertical, 6)
             } else {
-                let rows = ForEach(profiles) { p in
+                let rows = ForEach(displayed) { p in
                     AccountRow(
                         model: model,
                         p: p,
@@ -33,10 +56,18 @@ struct AccountsSection: View {
                     )
                     .padding(.horizontal, 8)
                 }
-                if profiles.count > 6 {
+                if displayed.count > 6 {
                     ScrollView { VStack(spacing: 2) { rows } }.frame(maxHeight: 340)
                 } else {
                     rows
+                }
+                if !inactive.isEmpty {
+                    InactiveAccountsToggle(
+                        count: inactive.count,
+                        expanded: showInactive,
+                        action: { showInactive.toggle() }
+                    )
+                    .padding(.horizontal, 8)
                 }
             }
             // Sign a BRAND-NEW account in, in-app (design §7). Subdued below the
@@ -74,7 +105,9 @@ struct AccountsSection: View {
     }
 
     private func moveInspection(_ direction: MoveCommandDirection) {
-        let names = profiles.map(\.name)
+        // Navigate the VISIBLE rows — arrowing into a collapsed account would
+        // move the inspection onto a row that isn't on screen.
+        let names = displayed.map(\.name)
         guard !names.isEmpty else { return }
         let current = model.inspected?.name ?? names[0]
         guard let i = names.firstIndex(of: current) else { return }
@@ -83,6 +116,44 @@ struct AccountsSection: View {
         case .down: model.inspect(names[min(names.count - 1, i + 1)])
         default: break
         }
+    }
+}
+
+/// The collapsed-group toggle row: "N inactive plans" with a disclosure
+/// chevron, quieter than an AccountRow (the whole point is getting dead weight
+/// out of the eye line). The count keeps the group honest while collapsed —
+/// accounts are folded away, never unlisted.
+struct InactiveAccountsToggle: View {
+    let count: Int
+    let expanded: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var title: String {
+        let noun = count == 1 ? "account" : "accounts"
+        return expanded
+            ? "Hide inactive \(noun)"
+            : "\(count) inactive \(noun) (canceled / free)"
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .frame(width: 16)
+                Text(title).font(.caption)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.tertiary)
+            .padding(.vertical, 3).padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(hovering ? Color.primary.opacity(0.06) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 

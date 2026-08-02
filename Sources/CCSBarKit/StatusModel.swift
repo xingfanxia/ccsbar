@@ -45,6 +45,7 @@ final class StatusModel: ObservableObject {
                 addingHarness = nil
                 renaming = nil
                 pendingRemoval = nil
+                pendingDelete = nil
                 thresholdEdit = nil
             }
             guard !isPreview else { return }
@@ -79,6 +80,13 @@ final class StatusModel: ObservableObject {
     /// TextField + confirm). `nil` ⇒ no rename in progress. Set by the context-menu
     /// "Rename…" item, cleared on commit/cancel.
     @Published var renaming: String?
+    /// The profile awaiting the DELETE confirm banner — a `clauth delete` removes
+    /// the profile directory AND its stored credentials, so it always confirms,
+    /// with consequence-aware copy (`Self.deletePrompt`). `nil` ⇒ none pending.
+    @Published var pendingDelete: String?
+    /// The profile whose `clauth delete` spawn is currently running, or nil.
+    /// Single-flight: the context-menu item disables while one is in flight.
+    @Published var deleteInFlight: String?
     /// Count of config socket round-trips in flight (CBAR4-5 §7 pending shimmer) —
     /// the disclosure shows an honest "Applying…" while > 0. Cleared as each
     /// command's reply lands (the settle ladder then updates the view).

@@ -213,11 +213,15 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// `"primary"` (5h window) or `"secondary"` (7d window) rejected it. `nil` when
     /// not rate-limited, for claude profiles, or older daemons.
     let codexRateLimitReached: String?
-    /// CLA-FEED: the daemon re-stamps this profile's session-token sidecar
-    /// from the usage chain on every rotation — its hours-scale expiry is
+    /// CLA-ROLL: this profile's session-token sidecar holds a rolling bearer
+    /// the daemon re-stamps from the usage chain — its hours-scale expiry is
     /// routine maintenance while true, a dying credential while false. Keys
-    /// the token line's fed rendering; absent on older daemons (= false).
-    let sessionFeed: Bool
+    /// the token line's rolling rendering. Decoded from `rolling_token`
+    /// (clauth ≥ the #59 rename) FALLING BACK to `session_feed` (the fork's
+    /// pre-rename spelling), so ccsbar reads correctly on either side of the
+    /// daemon upgrade — no same-window coordination between the two repos.
+    /// Absent on older daemons (= false).
+    let rollingToken: Bool
 
     enum CodingKeys: String, CodingKey {
         case name, active, provider, tier, fallback, windows, harness
@@ -233,6 +237,12 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         case thirdParty = "third_party"
         case codexSnapshotAt = "codex_snapshot_at"
         case codexRateLimitReached = "codex_rate_limit_reached"
+        case rollingToken = "rolling_token"
+    }
+
+    /// The pre-rename spelling, decode-only — kept OUT of `CodingKeys` so the
+    /// synthesized `encode` (snapshot fixtures) writes only the current key.
+    private enum LegacyKeys: String, CodingKey {
         case sessionFeed = "session_feed"
     }
 
@@ -260,7 +270,10 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         harness = try c.decodeIfPresent(String.self, forKey: .harness)
         codexSnapshotAt = try c.decodeIfPresent(String.self, forKey: .codexSnapshotAt)
         codexRateLimitReached = try c.decodeIfPresent(String.self, forKey: .codexRateLimitReached)
-        sessionFeed = try c.decodeIfPresent(Bool.self, forKey: .sessionFeed) ?? false
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        rollingToken = try c.decodeIfPresent(Bool.self, forKey: .rollingToken)
+            ?? legacy.decodeIfPresent(Bool.self, forKey: .sessionFeed)
+            ?? false
     }
 
     /// The window with the given label (`"5h"`, `"7d"`, `"7d fable"`), or nil.
@@ -304,6 +317,19 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// AUTH-1: a revoked/dead login the daemon must never rotate into (forecast
     /// engine skips it like an exhausted member).
     var authBroken: Bool { authStatus == "broken" }
+
+    /// A cancelled or lapsed plan: the claude side labels a canceled
+    /// subscription's tier `"canceled"` (the /profile `subscription_status`),
+    /// and a codex account whose plan lapsed reads tier `"free"`. Either way
+    /// the account is not a useful switch target, so the ACCOUNTS list folds
+    /// it into the collapsed inactive group (never the ACTIVE account — that
+    /// exclusion is the view's, since active-ness is about what you're running
+    /// on, not what the plan is worth).
+    var planInactive: Bool {
+        guard let tier else { return false }
+        let t = tier.lowercased()
+        return t == "canceled" || t == "cancelled" || t == "free"
+    }
 }
 
 struct FallbackInfo: Codable, Sendable {

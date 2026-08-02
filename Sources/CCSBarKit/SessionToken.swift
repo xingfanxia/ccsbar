@@ -97,7 +97,8 @@ enum SessionToken {
     /// Day-granular — the horizon is ~a year, and the stamp itself is the
     /// documented lifetime, not a server figure.
     ///
-    /// CLA-FEED (`fed`, from status.json `session_feed`): the daemon
+    /// CLA-ROLL (`fed`, from status.json `rolling_token` / legacy
+    /// `session_feed`): the daemon
     /// re-stamps this sidecar from the usage chain on every rotation AND —
     /// since clauth EXP-2 (2026-07-23) — on a freshness timer that re-feeds
     /// two hours ahead of the stamp, so an hours-scale expiry is routine

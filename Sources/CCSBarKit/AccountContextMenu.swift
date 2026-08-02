@@ -95,6 +95,18 @@ struct AccountContextMenu: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(p.name, forType: .string)
         }
+
+        Divider()
+
+        // Delete the PROFILE (not just its chain membership) — `clauth delete`,
+        // credentials and all, behind the armed confirm banner. CLI-only, so it
+        // works with the daemon down; a live `clauth start` session still
+        // refuses it CLI-side (never `--force`) and the refusal surfaces
+        // verbatim. Disabled while a delete or switch is already in flight.
+        Button("Delete account…", role: .destructive) {
+            model.requestDelete(p.name)
+        }
+        .disabled(model.deleteInFlight != nil || model.switchInFlight)
     }
 
     @ViewBuilder private var chainItems: some View {

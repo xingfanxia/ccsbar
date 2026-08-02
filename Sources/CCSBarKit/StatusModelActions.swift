@@ -331,6 +331,74 @@ extension StatusModel {
 
     func cancelRemoval() { pendingRemoval = nil }
 
+    // MARK: - Delete a profile (context-menu "Delete account…" → armed confirm)
+
+    /// Arm the delete confirm for `name`. ALWAYS confirms — a delete removes the
+    /// profile directory and every credential in it, so there is no
+    /// harmless-enough case — with consequence-aware copy.
+    func requestDelete(_ name: String) { pendingDelete = name }
+
+    /// The confirm copy for the pending delete, or nil when none is pending.
+    var pendingDeletePrompt: String? {
+        guard let name = pendingDelete else { return nil }
+        let p = listProfiles.first { $0.name == name }
+        return Self.deletePrompt(
+            name,
+            active: p?.active ?? false,
+            inChain: p?.inChain ?? false
+        )
+    }
+
+    /// The delete-confirm copy. Names every consequence the tap commits to:
+    /// stored credentials go with the profile, an ACTIVE account's live login
+    /// is cleared, and a chain member leaves the chain. Pure so it's
+    /// unit-tested without a daemon.
+    nonisolated static func deletePrompt(_ name: String, active: Bool, inChain: Bool) -> String {
+        var prompt = "Delete '\(name)' and its stored credentials?"
+        if active {
+            prompt += " It is the ACTIVE account — the live login is cleared too."
+        }
+        if inChain {
+            prompt += " It leaves the fallback chain."
+        }
+        prompt += " This can't be undone."
+        return prompt
+    }
+
+    /// Commit the armed delete: spawn `clauth delete <name> --yes` (CLI-only —
+    /// no socket verb, and never `--force`, so a live `clauth start` session
+    /// keeps refusing it and the refusal lands in the error banner in clauth's
+    /// own words). On success, drop the deleted profile's view state and nudge
+    /// a refresh so status.json reflects the config change promptly — same
+    /// daemon-down policy as the login flows: skip the socket nudge, the next
+    /// tick surfaces it. `runDelete` is injected so outcome routing is
+    /// testable without spawning.
+    func confirmDelete(runDelete: (@Sendable (String) async -> CommandOutcome)? = nil) {
+        guard let name = pendingDelete else { return }
+        guard deleteInFlight == nil else { return } // one delete at a time
+        pendingDelete = nil
+        let runner = runDelete ?? { await DaemonClient.deleteProfile($0) }
+        deleteInFlight = name
+        lastCommandError = nil
+        errorClearTask?.cancel()
+        Task { [weak self] in
+            let outcome = await runner(name)
+            guard let self else { return }
+            self.deleteInFlight = nil
+            switch outcome {
+            case .ok:
+                if self.inspectedName == name { self.inspectedName = nil }
+                if self.daemonReachable { self.refresh() }
+            case .daemonError(_, let message):
+                self.showError(message)
+            case .unreachable:
+                self.showError("Couldn't find the clauth binary. Run `clauth delete \(name)` in a terminal.")
+            }
+        }
+    }
+
+    func cancelDelete() { pendingDelete = nil }
+
     // MARK: - Rename a profile (context-menu "Rename…" → inline banner)
 
     /// Open the inline rename editor for `name`.
