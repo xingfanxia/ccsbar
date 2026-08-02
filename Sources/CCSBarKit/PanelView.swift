@@ -174,7 +174,12 @@ struct PanelView: View {
             Spacer(minLength: 4)
             // Cancel is pure local state — never gated on daemon reachability.
             Button("Cancel") { model.cancelDelete() }.controlSize(.small)
-            Button("Delete") { model.confirmDelete() }.controlSize(.small).tint(Theme.danger)
+            // Same gate as `confirmDelete`'s login guard, made VISIBLE: an
+            // enabled button whose tap silently no-ops reads as broken, and
+            // a login can hold the guard for its whole browser wait.
+            Button("Delete") { model.confirmDelete() }
+                .controlSize(.small).tint(Theme.danger)
+                .disabled(model.loginInFlight != nil)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Theme.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))

@@ -356,11 +356,21 @@ final class StatusModel: ObservableObject {
         }
         let harness = tab.harness ?? .claude
         if let slot = activeProfile(for: harness) { return slot }
+        // The FALLBACK half must never resolve to a row the accounts list is
+        // currently folding into its inactive group (`planInactive && !active`
+        // — the same predicate `AccountsSection.partition` collapses on), or
+        // the detail card anchors to a row that isn't rendered anywhere. An
+        // EXPLICIT inspection of such a row (the user expanded the group and
+        // clicked) still wins through `inspectedName` above.
         if let s = status, let head = s.chain(for: harness).first,
-           let p = s.profiles.first(where: { $0.name == head }) {
+           let p = s.profiles.first(where: { $0.name == head }),
+           !p.planInactive {
             return p
         }
-        return profiles(for: harness).first
+        // No visible row at all (every profile folded away): no card, rather
+        // than a card anchored to a collapsed row. An explicit click after
+        // expanding the group still shows one via `inspectedName`.
+        return profiles(for: harness).first { !($0.planInactive && !$0.active) }
     }
 
     func inspect(_ name: String) { inspectedName = name }

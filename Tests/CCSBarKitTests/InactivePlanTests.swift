@@ -75,3 +75,39 @@ final class InactivePlanTests: XCTestCase {
                 .rollingToken)
     }
 }
+
+/// The DetailCard's FALLBACK resolution (no explicit inspection, no active
+/// account) must never anchor to a row the accounts list is folding into the
+/// collapsed inactive group — and an explicit inspection of such a row must
+/// still win.
+extension InactivePlanTests {
+    @MainActor
+    func testFallbackInspectionSkipsCollapsedRows() throws {
+        let s = try JSONDecoder().decode(DaemonStatus.self, from: Data("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":null,
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":["lapsed","healthy"],
+         "profiles":[{"name":"lapsed","active":false,"tier":"canceled","windows":[]},
+                     {"name":"healthy","active":false,"tier":"Max 20x","windows":[]}]}
+        """.utf8))
+        let model = StatusModel(preview: s, liveness: .ok)
+        XCTAssertEqual(model.inspected?.name, "healthy",
+                       "the chain HEAD is collapsed, so the fallback must skip past it")
+
+        // Explicit inspection of the collapsed row still wins — the user
+        // expanded the group and clicked it.
+        model.inspect("lapsed")
+        XCTAssertEqual(model.inspected?.name, "lapsed")
+    }
+
+    @MainActor
+    func testFallbackInspectionIsNilWhenEverythingIsCollapsed() throws {
+        let s = try JSONDecoder().decode(DaemonStatus.self, from: Data("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":null,
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
+         "profiles":[{"name":"lapsed","active":false,"tier":"free","windows":[]}]}
+        """.utf8))
+        let model = StatusModel(preview: s, liveness: .ok)
+        XCTAssertNil(model.inspected,
+                     "no visible row → no card, never a card anchored to a hidden row")
+    }
+}
