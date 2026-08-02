@@ -565,11 +565,40 @@ enum DaemonClient {
         ["delete", name, "--yes"]
     }
 
+    /// The error copy for a failed `clauth delete`, from its captured stderr.
+    /// The WHOLE refusal, newlines flattened — clauth's `resolve_or_bail` emits
+    /// two lines ("Error: profile 'x' not found" + "available: …"), and picking
+    /// any single line either drops the failure or drops the hint. Empty stderr
+    /// falls back to the exit status. Pure and unit-tested.
+    static func deleteFailureReason(stderr: String, exitStatus: Int32) -> String {
+        let flattened = stderr
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " — ")
+        return flattened.isEmpty ? "clauth delete exited \(exitStatus)" : flattened
+    }
+
+    /// How long a `clauth delete` may run before the spawn is presumed wedged.
+    /// The command is local filesystem work (config rewrite + `remove_dir_all`)
+    /// and exits in milliseconds; 30s is generous. The socket path bounds every
+    /// blocking call (`ioTimeout`) — this is the same policy for the one CLI
+    /// spawn whose stderr we also read.
+    private static let deleteTimeout: Duration = .seconds(30)
+
     /// Run `clauth delete <name> --yes` (CLI-only — the daemon socket carries no
     /// delete verb, deliberately: a destructive command wants the CLI's own
     /// guards, not a new socket surface). stderr is captured so a refusal
     /// ("has a live session", "unknown profile") reaches the error banner as
     /// clauth's own words instead of a bare exit code.
+    ///
+    /// stderr is drained CONCURRENTLY with the wait, never only after exit: a
+    /// child that fills the OS pipe buffer blocks in `write()` and never
+    /// terminates, so a drain that waits for `terminationHandler` deadlocks —
+    /// and `deleteInFlight` is a single global gate, so one wedged delete would
+    /// disable the verb for every account until the app restarts. A watchdog
+    /// SIGTERMs the child past `deleteTimeout` for the same reason; the
+    /// termination handler then fires normally with a non-zero status.
     static func deleteProfile(_ name: String) async -> CommandOutcome {
         guard let bin = clauthBinary() else { return .unreachable }
         let proc = Process()
@@ -577,28 +606,40 @@ enum DaemonClient {
         proc.arguments = deleteArgs(name)
         let stderr = Pipe()
         proc.standardError = stderr
-        return await withCheckedContinuation { (cont: CheckedContinuation<CommandOutcome, Never>) in
-            proc.terminationHandler = { p in
-                let status = p.terminationStatus
-                if status == 0 {
-                    cont.resume(returning: .ok)
-                    return
-                }
-                let data = stderr.fileHandleForReading.readDataToEndOfFile()
-                let lines = String(decoding: data, as: UTF8.self)
-                    .split(separator: "\n").map(String.init)
-                let reason = lines.last(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
-                    ?? "clauth delete exited \(status)"
-                cont.resume(returning: .daemonError(code: "cli_failed", message: reason))
-            }
+        let readEnd = stderr.fileHandleForReading
+        // Started before the wait so the pipe can never fill unread. Reaches
+        // EOF when the write end closes — on the spawn-failure path that is
+        // when `proc`/`stderr` release their handles at scope exit.
+        let drain = Task.detached { readEnd.readDataToEndOfFile() }
+
+        enum Spawn { case exited(Int32), failed(String) }
+        let spawn: Spawn = await withCheckedContinuation { cont in
+            proc.terminationHandler = { cont.resume(returning: .exited($0.terminationStatus)) }
             do {
                 try proc.run()
+                Task.detached {
+                    try? await Task.sleep(for: deleteTimeout)
+                    if proc.isRunning { proc.terminate() }
+                }
             } catch {
                 // Never started → the termination handler won't fire; resume here once.
                 proc.terminationHandler = nil
-                cont.resume(returning: .daemonError(
-                    code: "cli_failed", message: "could not run clauth: \(error.localizedDescription)"))
+                cont.resume(returning: .failed(error.localizedDescription))
             }
+        }
+        switch spawn {
+        case .failed(let message):
+            drain.cancel()
+            return .daemonError(code: "cli_failed", message: "could not run clauth: \(message)")
+        case .exited(0):
+            _ = await drain.value
+            return .ok
+        case .exited(let status):
+            let data = await drain.value
+            return .daemonError(
+                code: "cli_failed",
+                message: deleteFailureReason(
+                    stderr: String(decoding: data, as: UTF8.self), exitStatus: status))
         }
     }
 

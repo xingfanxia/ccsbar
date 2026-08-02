@@ -338,15 +338,16 @@ extension StatusModel {
     /// harmless-enough case — with consequence-aware copy.
     func requestDelete(_ name: String) { pendingDelete = name }
 
-    /// The confirm copy for the pending delete, or nil when none is pending.
+    /// The confirm copy for the pending delete, or nil when none is pending —
+    /// or when the target is no longer in the profile list (renamed away, or
+    /// removed by another actor while the banner sat open). Same self-healing
+    /// the removal confirm gets from `ChainEdit.removalConsequence` returning
+    /// nil: a danger banner must never outlive the thing it warns about.
     var pendingDeletePrompt: String? {
-        guard let name = pendingDelete else { return nil }
-        let p = listProfiles.first { $0.name == name }
-        return Self.deletePrompt(
-            name,
-            active: p?.active ?? false,
-            inChain: p?.inChain ?? false
-        )
+        guard let name = pendingDelete,
+              let p = listProfiles.first(where: { $0.name == name })
+        else { return nil }
+        return Self.deletePrompt(name, active: p.active, inChain: p.inChain)
     }
 
     /// The delete-confirm copy. Names every consequence the tap commits to:
@@ -376,6 +377,19 @@ extension StatusModel {
     func confirmDelete(runDelete: (@Sendable (String) async -> CommandOutcome)? = nil) {
         guard let name = pendingDelete else { return }
         guard deleteInFlight == nil else { return } // one delete at a time
+        // A login spawn (reauth/add/setup-token) may be mid-flight against this
+        // very profile — `clauth login` runs outside the state flock for its
+        // whole browser wait, so a concurrent delete races the profile dir and
+        // the login's late config write can resurrect a deleted entry. The
+        // menu item gates on this too; the guard catches the armed-banner path.
+        guard loginInFlight == nil else { return }
+        // The target may have vanished while the banner sat open (rename, or
+        // another actor's delete) — firing `clauth delete` at a stale name is
+        // a guaranteed refusal, so drop the armed state instead.
+        guard listProfiles.contains(where: { $0.name == name }) else {
+            pendingDelete = nil
+            return
+        }
         pendingDelete = nil
         let runner = runDelete ?? { await DaemonClient.deleteProfile($0) }
         deleteInFlight = name
@@ -411,6 +425,14 @@ extension StatusModel {
     /// renamed profile to appear in status.json.
     func commitRename(_ old: String, to new: String) {
         let existing = listProfiles.map(\.name)
+        // The rename target can vanish while the banner sits open (deleted, or
+        // renamed by another actor) — firing the socket at a stale name is a
+        // guaranteed rejection, so say what actually happened instead.
+        guard existing.contains(old) else {
+            renaming = nil
+            showError("'\(old)' no longer exists — nothing to rename.")
+            return
+        }
         if let error = Self.renameValidationError(new, old: old, existing: existing) {
             renaming = nil
             showError(error)

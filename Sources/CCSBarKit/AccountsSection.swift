@@ -65,7 +65,10 @@ struct AccountsSection: View {
                     InactiveAccountsToggle(
                         count: inactive.count,
                         expanded: showInactive,
-                        action: { showInactive.toggle() }
+                        action: {
+                            showInactive.toggle()
+                            dropHiddenInspection()
+                        }
                     )
                     .padding(.horizontal, 8)
                 }
@@ -86,6 +89,29 @@ struct AccountsSection: View {
         // ↑/↓ move inspection (macOS 14 focus nav; degrades gracefully).
         .focusable()
         .onMoveCommand { direction in moveInspection(direction) }
+        // A poll can move the INSPECTED account into the collapsed group (its
+        // tier flips to canceled/free under the panel) — the detail card would
+        // then anchor to a row that isn't rendered. Drop the inspection the
+        // moment its row stops being visible, same as a tab switch does.
+        .onChange(of: hiddenNames) { _, hidden in
+            if let name = model.inspectedName, hidden.contains(name) {
+                model.inspectedName = nil
+            }
+        }
+    }
+
+    /// Names currently folded away (empty while expanded).
+    private var hiddenNames: [String] {
+        showInactive ? [] : inactive.map(\.name)
+    }
+
+    /// Clear an inspection whose row the collapse just hid — the toggle-action
+    /// half of the `.onChange` above (the toggle mutates `showInactive` in the
+    /// same tick, so the recomputed `hiddenNames` is what must be consulted).
+    private func dropHiddenInspection() {
+        if let name = model.inspectedName, hiddenNames.contains(name) {
+            model.inspectedName = nil
+        }
     }
 
     /// The first-run door (TABS-1): an empty list is an invitation, not a dead end.

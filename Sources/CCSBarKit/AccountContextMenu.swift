@@ -102,11 +102,14 @@ struct AccountContextMenu: View {
         // credentials and all, behind the armed confirm banner. CLI-only, so it
         // works with the daemon down; a live `clauth start` session still
         // refuses it CLI-side (never `--force`) and the refusal surfaces
-        // verbatim. Disabled while a delete or switch is already in flight.
+        // verbatim. Disabled while a delete, switch, login, OR rename is in
+        // flight: `clauth login` runs outside the state flock for its whole
+        // browser wait, so a concurrent delete would race the profile dir.
         Button("Delete account…", role: .destructive) {
             model.requestDelete(p.name)
         }
-        .disabled(model.deleteInFlight != nil || model.switchInFlight)
+        .disabled(model.deleteInFlight != nil || model.switchInFlight
+            || model.loginInFlight != nil || model.renaming != nil)
     }
 
     @ViewBuilder private var chainItems: some View {
