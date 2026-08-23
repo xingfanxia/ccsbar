@@ -50,6 +50,7 @@ enum Snapshot {
                     .strokeBorder(appearance.border, lineWidth: 1)
             )
             .environment(\.colorScheme, appearance.scheme)
+            .environment(\.snapshotRender, true)
     }
 
     /// Re-serialize the fixture with `clauth_version` swapped, for the skew variant.

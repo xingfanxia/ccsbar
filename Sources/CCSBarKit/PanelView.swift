@@ -133,13 +133,12 @@ struct PanelView: View {
                 .disabled(dead)
                 .keyboardShortcut("r", modifiers: [])
             if LoginItem.isAvailable {
-                Toggle(isOn: Binding(get: { LoginItem.isEnabled }, set: { LoginItem.setEnabled($0) })) {
+                PanelSwitchToggle(isOn: Binding(get: { LoginItem.isEnabled }, set: { LoginItem.setEnabled($0) })) {
                     HStack(spacing: 8) {
                         Image(systemName: "power.circle").frame(width: 16)
                         Text("Start at login"); Spacer()
                     }
                 }
-                .toggleStyle(.switch).controlSize(.mini)
                 .padding(.vertical, 5).padding(.horizontal, 8)
             }
             ActionRow(icon: "power", title: "Quit ccsbar · daemon keeps running") { NSApp.terminate(nil) }

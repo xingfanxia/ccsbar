@@ -27,6 +27,13 @@ bars, the **detail card** for the inspected account, and the **chain rail**
 showing the ordered fallback. Three states it has a loud, fixed home for —
 each shown in both dark and light:
 
+| | Healthy | Login dropped | Window spent |
+|---|---|---|---|
+| **Dark** | ![healthy dark](docs/media/panel-healthy-dark.png) | ![reauth dark](docs/media/panel-reauth-dark.png) | ![spent dark](docs/media/panel-spent-dark.png) |
+| **Light** | ![healthy light](docs/media/panel-healthy-light.png) | ![reauth light](docs/media/panel-reauth-light.png) | ![spent light](docs/media/panel-spent-light.png) |
+
+### The provider pages — Overview & Codex
+
 Since TABS-1 the panel opens with a **provider tab bar** (Overview / Claude /
 Codex, codexbar-style — each harness tab carries a small usage underline for its
 active account's 5h burn). **Overview** is a cross-harness glance: one card per
@@ -39,10 +46,16 @@ codex account offers both doors: *Capture current login* (instant — copies
 `~/.codex/auth.json` via `clauth login <name> --codex --new`) and *Sign in…*
 (browser PKCE, `--codex --browser --new`).
 
-| | Healthy | Login dropped | Window spent |
-|---|---|---|---|
-| **Dark** | ![healthy dark](docs/media/panel-healthy-dark.png) | ![reauth dark](docs/media/panel-reauth-dark.png) | ![spent dark](docs/media/panel-spent-dark.png) |
-| **Light** | ![healthy light](docs/media/panel-healthy-light.png) | ![reauth light](docs/media/panel-reauth-light.png) | ![spent light](docs/media/panel-spent-light.png) |
+The page also carries the **Proxy mode** switch: on, new `codex` sessions route
+through clauth's local proxy (`:4517`), which injects the account per request —
+switches apply to running sessions instantly and a rate-limited request rotates
+to the next account and replays; off, codex talks to OpenAI directly and a
+switch lands at the next codex start.
+
+| | Overview | Codex |
+|---|---|---|
+| **Dark** | ![overview dark](docs/media/panel-tab-overview-dark.png) | ![codex dark](docs/media/panel-tab-codex-dark.png) |
+| **Light** | ![overview light](docs/media/panel-tab-overview-light.png) | ![codex light](docs/media/panel-tab-codex-light.png) |
 
 ### What ccsbar is a window into
 

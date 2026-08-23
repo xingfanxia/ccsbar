@@ -11,10 +11,11 @@ struct CodexProxyRow: View {
     /// Hover expands the explainer in place (the TokensStrip idiom) —
     /// `.help()` tooltips don't reliably surface inside a MenuBarExtra panel.
     @State private var hovering = false
+    @Environment(\.snapshotRender) private var snapshotRender
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Toggle(isOn: Binding(get: { routed }, set: { setRouting($0) })) {
+            PanelSwitchToggle(isOn: Binding(get: { routed }, set: { setRouting($0) })) {
                 HStack(spacing: 8) {
                     Image(systemName: "network").frame(width: 16)
                     Text("Proxy mode").font(.body)
@@ -24,7 +25,6 @@ struct CodexProxyRow: View {
                         .foregroundStyle(captionStyle)
                 }
             }
-            .toggleStyle(.switch).controlSize(.mini)
             if let error {
                 Text(error).font(.caption2).foregroundStyle(Theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
@@ -67,6 +67,9 @@ struct CodexProxyRow: View {
     }
 
     private func refresh() {
+        // README renders must not read the operator's config.toml or probe the
+        // proxy port — pin the default "direct" state so renders are deterministic.
+        if snapshotRender { return }
         routed = CodexProxyMode.routed()
         error = nil
         DispatchQueue.global(qos: .userInitiated).async {
