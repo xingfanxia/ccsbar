@@ -25,7 +25,7 @@ ago"). Gemini appears in codexbar; clauth has no gemini harness, so tabs are
 | Per-profile `fallback` block (position/threshold/armed/last_resort) is computed against **its harness's** chain | `status_json.rs:78` |
 | Codex walk honors per-member `threshold`, `last_resort` sink pass, and the chain-global weekly line; **no wrap-off** (claude-only concept) | `fallback.rs:829-868` |
 | `auth_status` published for codex profiles too | `status_json.rs:336` |
-| `active_codex_profile` + `codex_fallback_chain` top-level; per-profile `harness`, `codex_snapshot_at`, `codex_rate_limit_reached` | consumed in `DaemonStatus.swift` already |
+| `active_codex_profile` + `codex_fallback_chain` top-level; per-profile `harness`, `codex_snapshot_at`, `codex_rate_limit_reached` (bare-reason spelling since 2026-09), `codex_reset_credits` (2026-09-02) | consumed in `DaemonStatus.swift` already |
 | `pending_switch` publishes the single ranked winner across both harnesses (a codex pending shows when it's the winner) | `daemon/mod.rs:630` |
 | CLI add/reauth for codex: `clauth login <name> --codex` (capture live login, instant, no browser) and `clauth login <name> --codex --browser` (PKCE mint); `--new` composes for race-proof CREATE | `main.rs parse_login_args` |
 | Live daemon reality: clauth 0.11.0, **zero codex profiles yet** → the Codex tab's EMPTY STATE is the actual front door | `~/.clauth/status.json` |
