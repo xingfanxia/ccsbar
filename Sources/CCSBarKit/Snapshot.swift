@@ -141,6 +141,35 @@ enum Snapshot {
         return try? JSONDecoder().decode(DaemonStatus.self, from: stripped)
     }
 
+    /// Re-serialize the fixture with the ACTIVE codex profile blocked the way the
+    /// backend actually reports it since 2026-09: the weekly window full, the
+    /// verdict a bare reason (`rate_limit_reached`, naming no window), and one
+    /// reset credit banked. The Codex page's limit card — window named from the
+    /// percentages, its reset, the banked line — gets its own verifiable render.
+    private static func fixtureCodexLimited(from data: Data) -> DaemonStatus? {
+        guard var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var profiles = dict["profiles"] as? [[String: Any]],
+              let idx = profiles.firstIndex(where: {
+                  ($0["harness"] as? String) == "codex" && ($0["active"] as? Bool) == true
+              })
+        else {
+            FileHandle.standardError.write(Data("snapshot[codex-limited]: no active codex profile\n".utf8))
+            return nil
+        }
+        profiles[idx]["codex_rate_limit_reached"] = "rate_limit_reached"
+        profiles[idx]["codex_reset_credits"] = 1
+        // The card only shows while the named window is LIVE (its reset ahead
+        // of the clock — the same lapse gate the daemon applies), so the reset
+        // is stamped relative to now rather than copied from the 2026-07 fixture.
+        let resets = ISO8601DateFormatter().string(from: Date().addingTimeInterval(4 * 86_400 + 8 * 3_600))
+        profiles[idx]["windows"] = [[
+            "label": "7d", "utilization_pct": 100, "resets_at": resets,
+        ]]
+        dict["profiles"] = profiles
+        guard let limited = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+        return try? JSONDecoder().decode(DaemonStatus.self, from: limited)
+    }
+
     /// Re-serialize the fixture with the first non-active profile's `auth_status`
     /// pinned to `"broken"` — the AUTH-3 dropped-login case. Returns (status, name)
     /// so the caller inspects exactly the broken row, whose detail card then shows the
@@ -257,6 +286,7 @@ enum Snapshot {
             case "tab-overview": return (mock, .ok, nil, .idle, .overview)
             case "tab-codex": return (mock, .ok, nil, .idle, .codex)
             case "codex-empty": return (fixtureWithoutCodex(from: data) ?? mock, .ok, nil, .idle, .codex)
+            case "codex-limited": return (fixtureCodexLimited(from: data) ?? mock, .ok, nil, .idle, .codex)
             case "add-codex": return (mock, .ok, nil, .idle, .codex)
             // default / healthy: inspected=nil resolves to the ACTIVE account (the real
             // first-open path — StatusModel.inspected falls back to active), so this

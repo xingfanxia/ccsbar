@@ -52,10 +52,17 @@ switches apply to running sessions instantly and a rate-limited request rotates
 to the next account and replays; off, codex talks to OpenAI directly and a
 switch lands at the next codex start.
 
-| | Overview | Codex |
-|---|---|---|
-| **Dark** | ![overview dark](docs/media/panel-tab-overview-dark.png) | ![codex dark](docs/media/panel-tab-codex-dark.png) |
-| **Light** | ![overview light](docs/media/panel-tab-overview-light.png) | ![codex light](docs/media/panel-tab-codex-light.png) |
+When the active codex account is rate-limited the page opens with a **limit
+card**: which window is spent (named from the daemon's own percentages when
+OpenAI's verdict no longer names one), when it resets, and — new with clauth's
+`codex_reset_credits` — how many **free rate-limit resets** OpenAI has banked
+for that account. ccsbar only reads the count; a reset is redeemed from the
+Codex app ("Reset usage").
+
+| | Overview | Codex | Codex, rate-limited |
+|---|---|---|---|
+| **Dark** | ![overview dark](docs/media/panel-tab-overview-dark.png) | ![codex dark](docs/media/panel-tab-codex-dark.png) | ![codex limited dark](docs/media/panel-codex-limited-dark.png) |
+| **Light** | ![overview light](docs/media/panel-tab-overview-light.png) | ![codex light](docs/media/panel-tab-codex-light.png) | ![codex limited light](docs/media/panel-codex-limited-light.png) |
 
 ### What ccsbar is a window into
 

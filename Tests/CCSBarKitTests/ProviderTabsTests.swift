@@ -10,9 +10,11 @@ final class ProviderTabsTests: XCTestCase {
     // Positions are 1-BASED, matching the daemon wire contract (status_json.rs
     // emits `pos + 1`).
     private func twoHarnessStatus(
-        claudeLive: Bool = false, codexLimited: String? = nil
+        claudeLive: Bool = false, codexLimited: String? = nil,
+        codexWeeklyPct: Int = 30, codexBanked: Int? = nil
     ) throws -> DaemonStatus {
         let limited = codexLimited.map { "\"codex_rate_limit_reached\":\"\($0)\"," } ?? ""
+        let banked = codexBanked.map { "\"codex_reset_credits\":\($0)," } ?? ""
         return try JSONDecoder().decode(DaemonStatus.self, from: Data("""
         {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"cl-a",
          "wrap_off":false,"refresh_interval_ms":90000,
@@ -24,10 +26,10 @@ final class ProviderTabsTests: XCTestCase {
             "windows":[{"label":"5h","utilization_pct":40,"resets_at":"2099-01-01T05:00:00+00:00"}]},
            {"name":"cl-b","active":false,
             "fallback":{"position":2,"threshold":95,"armed":false},"windows":[]},
-           {"name":"cx-a","active":true,"provider":"openai","harness":"codex",\(limited)
+           {"name":"cx-a","active":true,"provider":"openai","harness":"codex",\(limited)\(banked)
             "fallback":{"position":1,"threshold":95,"armed":true},
             "windows":[{"label":"5h","utilization_pct":80,"resets_at":"2099-01-01T05:00:00+00:00"},
-                       {"label":"7d","utilization_pct":30,"resets_at":"2099-01-06T00:00:00+00:00"}]},
+                       {"label":"7d","utilization_pct":\(codexWeeklyPct),"resets_at":"2099-01-06T00:00:00+00:00"}]},
            {"name":"cx-b","active":false,"provider":"openai","harness":"codex",
             "fallback":{"position":2,"threshold":95,"armed":false},"windows":[]}
          ]}
@@ -336,15 +338,40 @@ final class ProviderTabsTests: XCTestCase {
         XCTAssertEqual(secondary.message, "cx-a hit its weekly window")
         XCTAssertEqual(secondary.resetsAt, "2099-01-06T00:00:00+00:00")
 
-        // Unknown future verdicts degrade to a generic line, never hide.
+        // A verdict naming no window degrades to a generic line, never hides —
+        // an 80% window is not pinned as the block.
         let s3 = try twoHarnessStatus(codexLimited: "tertiary")
         let cxa3 = try XCTUnwrap(s3.profiles.first { $0.name == "cx-a" })
         XCTAssertEqual(CodexStrip.rateLimitLine(cxa3)?.message, "cx-a is rate-limited")
+        XCTAssertNil(CodexStrip.rateLimitLine(cxa3)?.resetsAt)
+
+        // The backend's 2026-09 spelling (`rate_limit_reached`, no window named)
+        // with the weekly window reading full: the body's own percentages name
+        // the window, and the card carries that window's reset.
+        let s5 = try twoHarnessStatus(codexLimited: "rate_limit_reached", codexWeeklyPct: 100)
+        let cxa5 = try XCTUnwrap(s5.profiles.first { $0.name == "cx-a" })
+        let named = try XCTUnwrap(CodexStrip.rateLimitLine(cxa5))
+        XCTAssertEqual(named.message, "cx-a hit its weekly window")
+        XCTAssertEqual(named.resetsAt, "2099-01-06T00:00:00+00:00")
 
         // Not limited → nil (the strip shows the active line instead).
         let s4 = try twoHarnessStatus()
         let cxa4 = try XCTUnwrap(s4.profiles.first { $0.name == "cx-a" })
         XCTAssertNil(CodexStrip.rateLimitLine(cxa4))
+    }
+
+    func testCodexBankedLineOnlyWhenACountWasCarried() throws {
+        // nil (older daemon / no poll yet) and 0 are both silent; 1 and 2 word it.
+        let none = try XCTUnwrap(try twoHarnessStatus().profiles.first { $0.name == "cx-a" })
+        XCTAssertNil(none.codexResetCredits, "absent key decodes as nil, not 0")
+        XCTAssertNil(CodexStrip.bankedLine(none))
+        let zero = try XCTUnwrap(try twoHarnessStatus(codexBanked: 0).profiles.first { $0.name == "cx-a" })
+        XCTAssertEqual(zero.codexResetCredits, 0)
+        XCTAssertNil(CodexStrip.bankedLine(zero), "0 banked is noise beside a limit card")
+        let one = try XCTUnwrap(try twoHarnessStatus(codexBanked: 1).profiles.first { $0.name == "cx-a" })
+        XCTAssertEqual(CodexStrip.bankedLine(one), "1 free reset banked")
+        let two = try XCTUnwrap(try twoHarnessStatus(codexBanked: 2).profiles.first { $0.name == "cx-a" })
+        XCTAssertEqual(CodexStrip.bankedLine(two), "2 free resets banked")
     }
 
     func testCodexRateLimitLineClearsWhenTheNamedWindowLapses() throws {

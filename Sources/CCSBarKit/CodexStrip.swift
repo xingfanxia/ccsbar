@@ -20,7 +20,7 @@ struct CodexStrip: View {
                 SwitchLifecycleRow(phase: model.switchPhase, currentName: model.activeCodex?.name)
             } else if let active = model.activeCodex {
                 if let limited = Self.rateLimitLine(active) {
-                    rateLimitCard(limited)
+                    rateLimitCard(limited, for: active)
                 } else {
                     activeLine(active)
                 }
@@ -96,12 +96,30 @@ struct CodexStrip: View {
             guard live(p.sevenDay) else { return nil }
             return ("\(p.name) hit its weekly window", p.sevenDay?.resetsAt)
         case .some:
+            // A verdict that names no window (the backend's 2026-09 spelling,
+            // `"rate_limit_reached"`). The body's own percentages still say
+            // which window is spent: a live window reading full is named,
+            // with its reset; when neither reads full the line stays generic
+            // rather than pinning the block on an 80% window.
+            let fullLive = [(p.sevenDay, "weekly"), (p.fiveHour, "5h")]
+                .first { w, _ in live(w) && (w?.utilizationPct ?? 0) >= 100 }
+            if let (w, name) = fullLive {
+                return ("\(p.name) hit its \(name) window", w?.resetsAt)
+            }
             guard live(p.fiveHour) || live(p.sevenDay) else { return nil }
             return ("\(p.name) is rate-limited", nil)
         }
     }
 
-    private func rateLimitCard(_ limited: (message: String, resetsAt: String?)) -> some View {
+    /// "1 free reset banked" — only worth saying beside a spent window, and
+    /// only when the daemon has actually carried a count (nil = silent; a
+    /// zero is silent too, since "0 banked" is noise next to a limit card).
+    static func bankedLine(_ p: ProfileStatus) -> String? {
+        guard let n = p.codexResetCredits, n > 0 else { return nil }
+        return n == 1 ? "1 free reset banked" : "\(n) free resets banked"
+    }
+
+    private func rateLimitCard(_ limited: (message: String, resetsAt: String?), for active: ProfileStatus) -> some View {
         HStack(alignment: .top, spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 11)).foregroundStyle(Theme.warning)
@@ -110,6 +128,14 @@ struct CodexStrip: View {
                     .font(.callout).fixedSize(horizontal: false, vertical: true)
                 if let hint = Theme.resetHint(limited.resetsAt) {
                     Text(hint).font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let banked = Self.bankedLine(active) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.counterclockwise.circle").font(.system(size: 10))
+                        Text(banked)
+                    }
+                    .font(.subheadline).foregroundStyle(Theme.codex)
+                    .help("A rate-limit reset OpenAI granted this account. Redeem it from the Codex app (Reset usage) — clauth only reads the count.")
                 }
             }
             Spacer(minLength: 0)

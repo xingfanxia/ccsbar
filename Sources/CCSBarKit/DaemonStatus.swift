@@ -210,9 +210,19 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// window resets. `nil` for claude profiles / older daemons.
     let codexSnapshotAt: String?
     /// INT-2 (codex-only): codex's OWN limiter verdict on the last request —
-    /// `"primary"` (5h window) or `"secondary"` (7d window) rejected it. `nil` when
-    /// not rate-limited, for claude profiles, or older daemons.
+    /// `"primary"` (5h window) or `"secondary"` (7d window) rejected it, or (the
+    /// backend's 2026-09 spelling) a bare reason such as `"rate_limit_reached"`
+    /// that names no window. `nil` when not rate-limited, for claude profiles,
+    /// or older daemons.
     let codexRateLimitReached: String?
+    /// Codex-only: banked "reset credits" the account can spend to reopen a
+    /// spent window early (`rate_limit_reset_credits.available_count` on the
+    /// same usage body the verdict rides). `nil` for claude profiles, older
+    /// daemons, and until the daemon's first poll has carried a count — nil
+    /// says nothing, and is never rendered as "0 banked". A count is only
+    /// worth a word beside a SPENT window: the badge is redeemed on OpenAI's
+    /// side (the app's "Reset usage"), never by clauth or ccsbar.
+    let codexResetCredits: Int?
     /// CLA-ROLL: this profile's session-token sidecar holds a rolling bearer
     /// the daemon re-stamps from the usage chain — its hours-scale expiry is
     /// routine maintenance while true, a dying credential while false. Keys
@@ -237,6 +247,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         case thirdParty = "third_party"
         case codexSnapshotAt = "codex_snapshot_at"
         case codexRateLimitReached = "codex_rate_limit_reached"
+        case codexResetCredits = "codex_reset_credits"
         case rollingToken = "rolling_token"
     }
 
@@ -270,6 +281,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         harness = try c.decodeIfPresent(String.self, forKey: .harness)
         codexSnapshotAt = try c.decodeIfPresent(String.self, forKey: .codexSnapshotAt)
         codexRateLimitReached = try c.decodeIfPresent(String.self, forKey: .codexRateLimitReached)
+        codexResetCredits = try c.decodeIfPresent(Int.self, forKey: .codexResetCredits)
         let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         rollingToken = try c.decodeIfPresent(Bool.self, forKey: .rollingToken)
             ?? legacy.decodeIfPresent(Bool.self, forKey: .sessionFeed)
