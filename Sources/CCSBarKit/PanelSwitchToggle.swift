@@ -24,14 +24,14 @@ struct PanelSwitchToggle<Label: View>: View {
 
     var body: some View {
         if snapshotRender {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 label()
                 Capsule()
                     .fill(isOn.wrappedValue ? Color.accentColor : Color.primary.opacity(0.18))
-                    .frame(width: 26, height: 15)
+                    .frame(width: 31, height: 18)
                     .overlay(alignment: isOn.wrappedValue ? .trailing : .leading) {
                         Circle().fill(.white)
-                            .frame(width: 13, height: 13)
+                            .frame(width: 16, height: 16)
                             .padding(.horizontal, 1)
                             .shadow(radius: 0.5)
                     }

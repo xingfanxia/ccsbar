@@ -14,16 +14,16 @@ struct LoginFlightBanner: View {
     let flight: LoginFlight
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             ProgressView().controlSize(.small)
             Text(flight.bannerText)
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Theme.fine).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Theme.sapphire.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-        .padding(.horizontal, 12).padding(.bottom, 6)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Theme.sapphire.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
     }
 }
 
@@ -39,9 +39,9 @@ struct RenameBanner: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Rename \(name)").font(.subheadline).fontWeight(.medium)
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Rename \(name)").font(Theme.sub).fontWeight(.medium)
+            HStack(spacing: 7) {
                 TextField("New name", text: $newName)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
@@ -53,12 +53,12 @@ struct RenameBanner: View {
                     .keyboardShortcut(.return, modifiers: [])
             }
             if let err = liveError, !newName.trimmingCharacters(in: .whitespaces).isEmpty {
-                Text(err).font(.caption).foregroundStyle(Theme.danger)
+                Text(err).font(Theme.fine).foregroundStyle(Theme.danger)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-        .padding(.horizontal, 12).padding(.bottom, 6)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
         .onAppear {
             newName = name
             focused = true
@@ -90,12 +90,12 @@ struct SetupTokenBanner: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Install long-lived token for \(name)").font(.subheadline).fontWeight(.medium)
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Install long-lived token for \(name)").font(Theme.sub).fontWeight(.medium)
             Text("Run `claude setup-token` in a terminal, finish its browser flow, then paste the minted token here.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Theme.fine).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 SecureField("sk-ant-…", text: $token)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
@@ -107,16 +107,16 @@ struct SetupTokenBanner: View {
                     .keyboardShortcut(.return, modifiers: [])
             }
             if let err = SessionToken.validationError(token) {
-                Text(err).font(.caption).foregroundStyle(Theme.danger)
+                Text(err).font(Theme.fine).foregroundStyle(Theme.danger)
             } else {
                 Text("Sessions on this account then run on the static ~1-year token; it takes effect on the next switch.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(Theme.fine).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-        .padding(.horizontal, 12).padding(.bottom, 6)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
         .onAppear { focused = true }
     }
 
@@ -146,9 +146,9 @@ struct AddAccountBanner: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             Text(harness == .codex ? "Add codex account" : "Add account")
-                .font(.subheadline).fontWeight(.medium)
+                .font(Theme.sub).fontWeight(.medium)
             if harness == .codex {
                 // TWO rows for codex: the name field + three buttons cannot share
                 // one 340pt row without truncating the PRIMARY verb ("Capture
@@ -159,7 +159,7 @@ struct AddAccountBanner: View {
                     // ⏎ takes the PRIMARY door: capture (the common case — codex
                     // is already signed in on this machine).
                     .onSubmit { commit(.capture) }
-                HStack(spacing: 6) {
+                HStack(spacing: 7) {
                     Button("Cancel") { model.cancelAddAccount() }.controlSize(.small)
                     Spacer(minLength: 4)
                     Button("Capture current login") { commit(.capture) }
@@ -173,7 +173,7 @@ struct AddAccountBanner: View {
                         .help("Opens your browser for a fresh codex sign-in.")
                 }
             } else {
-                HStack(spacing: 6) {
+                HStack(spacing: 7) {
                     TextField("new profile name", text: $name)
                         .textFieldStyle(.roundedBorder)
                         .focused($focused)
@@ -191,20 +191,20 @@ struct AddAccountBanner: View {
             // Show the exact rejection reason once the user has typed something; before
             // that, a neutral hint about what the verbs will do.
             if let err = liveError, !name.trimmingCharacters(in: .whitespaces).isEmpty {
-                Text(err).font(.caption).foregroundStyle(Theme.danger)
+                Text(err).font(Theme.fine).foregroundStyle(Theme.danger)
             } else {
                 Text(harness == .codex
                      ? "Capture copies the login codex already has; Sign in opens your browser. Either creates the profile."
                      : "Opens your browser to sign in; creates the profile on success.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(Theme.fine).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 14).padding(.vertical, 10)
         // The editor wash wears the harness identity (TABS-1.1).
         .background((harness == .codex ? Theme.codex : Theme.accent).opacity(0.10),
-                    in: RoundedRectangle(cornerRadius: 8))
-        .padding(.horizontal, 12).padding(.bottom, 6)
+                    in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
         .onAppear { focused = true }
     }
 

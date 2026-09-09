@@ -72,12 +72,12 @@ struct ProviderTabBar: View {
     @ObservedObject var model: StatusModel
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
             ForEach(Array(ProviderTab.allCases.enumerated()), id: \.element) { i, tab in
                 segment(tab, index: i)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Provider pages")
     }
@@ -87,19 +87,19 @@ struct ProviderTabBar: View {
         return Button {
             model.tab = tab
         } label: {
-            VStack(spacing: 3) {
-                HStack(spacing: 5) {
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
                     // Brand glyphs for the harness tabs (template-tinted white
                     // on the selected pill), SF grid for Overview — codexbar's
                     // anatomy.
                     ProviderGlyphView(tab: tab)
-                    Text(tab.title).font(.subheadline).fontWeight(selected ? .semibold : .regular)
+                    Text(tab.title).font(Theme.sub).fontWeight(selected ? .semibold : .regular)
                 }
                 underline(for: tab, selected: selected)
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
             .frame(maxWidth: .infinity)
-            .contentShape(RoundedRectangle(cornerRadius: 7))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(TabSegmentStyle(selected: selected, pillFill: tab.pillFill))
         // ⌘1/⌘2/⌘3 jump straight to a page.
@@ -126,10 +126,10 @@ struct ProviderTabBar: View {
             color: selected
                 ? .white
                 : (pct.map { Theme.usageColor($0, threshold: active?.fallback?.threshold ?? 100) } ?? .clear),
-            height: 3,
+            height: 4,
             track: selected ? Color.white.opacity(0.3) : Theme.track
         )
-        .frame(width: 56)
+        .frame(width: 67)
         .opacity(pct == nil ? 0 : 1)
         .accessibilityHidden(true)
     }
@@ -148,7 +148,7 @@ private struct TabSegmentStyle: ButtonStyle {
             .foregroundStyle(
                 selected ? (pillFill == nil ? Color.primary : .white) : Color.secondary)
             .background(
-                RoundedRectangle(cornerRadius: 7)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(selected ? (pillFill ?? Color.primary.opacity(0.12))
                           : (hovering ? Color.primary.opacity(0.045) : .clear))
             )

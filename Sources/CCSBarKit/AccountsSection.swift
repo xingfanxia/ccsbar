@@ -38,10 +38,10 @@ struct AccountsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("ACCOUNTS")
-                .font(.subheadline).fontWeight(.semibold).foregroundStyle(.secondary)
-                .padding(.horizontal, 16).padding(.top, 4)
+                .font(Theme.sectionLabel).foregroundStyle(.secondary)
+                .padding(.horizontal, 19).padding(.top, 5)
             if profiles.isEmpty {
-                emptyState.padding(.horizontal, 16).padding(.vertical, 6)
+                emptyState.padding(.horizontal, 19).padding(.vertical, 7)
             } else {
                 let rows = ForEach(displayed) { p in
                     AccountRow(
@@ -54,7 +54,7 @@ struct AccountsSection: View {
                         showHarnessTag: false,
                         onInspect: { model.inspect(p.name) }
                     )
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 10)
                 }
                 if displayed.count > 6 {
                     ScrollView { VStack(spacing: 2) { rows } }.frame(maxHeight: 340)
@@ -70,7 +70,7 @@ struct AccountsSection: View {
                             dropHiddenInspection()
                         }
                     )
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 10)
                 }
             }
             // Sign a BRAND-NEW account in, in-app (design §7). Subdued below the
@@ -84,7 +84,7 @@ struct AccountsSection: View {
                 disabled: model.loginInFlight != nil,
                 action: { model.beginAddAccount(harness) }
             )
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
         }
         // ↑/↓ move inspection (macOS 14 focus nav; degrades gracefully).
         .focusable()
@@ -119,13 +119,13 @@ struct AccountsSection: View {
     /// usually already signed in on this machine) and a fresh browser sign-in; the
     /// add editor below offers the same two verbs.
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(harness == .codex ? "No codex accounts yet." : "No Claude accounts yet.")
-                .font(.callout).fontWeight(.medium)
+                .font(Theme.meta).fontWeight(.medium)
             Text(harness == .codex
                  ? "Capture the login codex is already signed in with — instant — or sign in fresh in a browser."
                  : "Sign in with your browser to create the first profile.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Theme.fine).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -164,18 +164,18 @@ struct InactiveAccountsToggle: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .frame(width: 16)
-                Text(title).font(.caption)
+                    .font(Theme.micro.weight(.semibold))
+                    .frame(width: 19)
+                Text(title).font(Theme.fine)
                 Spacer(minLength: 0)
             }
             .foregroundStyle(.tertiary)
-            .padding(.vertical, 3).padding(.horizontal, 8)
+            .padding(.vertical, 4).padding(.horizontal, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(hovering ? Color.primary.opacity(0.06) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 6))
+                        in: RoundedRectangle(cornerRadius: 7))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -194,16 +194,16 @@ struct AddAccountRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: "plus.circle").font(.callout)
-                Text(title).font(.callout)
+            HStack(spacing: 7) {
+                Image(systemName: "plus.circle").font(Theme.meta)
+                Text(title).font(Theme.meta)
                 Spacer(minLength: 0)
             }
             .foregroundStyle(.secondary)
-            .padding(.vertical, 4).padding(.horizontal, 8)
+            .padding(.vertical, 5).padding(.horizontal, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(hovering && !disabled ? Color.primary.opacity(0.06) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 6))
+                        in: RoundedRectangle(cornerRadius: 7))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

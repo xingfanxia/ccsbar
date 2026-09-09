@@ -30,6 +30,49 @@ enum Theme {
     static let warning = dynamic(light: 0xDF8E1D, dark: 0xF9E2AF)
     static let danger = dynamic(light: 0xD20F39, dark: 0xF38BA8)
 
+    // MARK: - Type scale
+
+    /// ONE ladder for the whole panel, because there was not one. It carried
+    /// ~146 font calls: mostly macOS's semantic roles — where `.subheadline` is
+    /// 11pt and `.caption` is 10 — with hard-coded 8-to-12pt chrome between
+    /// them. AX could not read the account rows (2026-09-09, 「字和badge还有图标
+    /// 可读性还是太差了好小」), and with no scale there was no lever to pull:
+    /// "bigger" meant editing every call site by hand and arriving somewhere
+    /// inconsistent.
+    ///
+    /// Every step is one to three points above the role it replaced, and the
+    /// ORDER is preserved, so nothing that used to sit above something else now
+    /// sits level with it. The panel widened to 400pt to hold it.
+    ///
+    /// Sizes are fixed rather than semantic. macOS's roles are the reason the
+    /// panel read small, and `dynamicTypeSize` — the one lever that would have
+    /// lifted them all at once — does nothing on macOS (measured: an identical
+    /// render at `.xLarge`). Pinning them is what keeps the decision visible.
+
+    /// Headings and an account's name — the largest thing in a row.
+    static let title = Font.system(size: 16, weight: .semibold)
+    /// A hero percentage: the name's twin, with digits that do not reflow.
+    static let figure = Font.system(size: 16, weight: .semibold).monospacedDigit()
+    /// Primary interface text — menu rows, buttons, a card's own heading.
+    static let body = Font.system(size: 14)
+    /// Secondary text: tier, provider, reset countdowns, availability.
+    static let meta = Font.system(size: 13.5)
+    /// Tertiary text, a step under `meta`.
+    static let sub = Font.system(size: 13)
+    /// Dim supporting text: which login a profile holds, window ticks, hints.
+    static let fine = Font.system(size: 12.5)
+    /// The dimmest chrome.
+    static let micro = Font.system(size: 11.5)
+    /// Every pill — spent, login expired, banked resets, watching, harness tag.
+    /// Semibold rather than medium: a capsule's whole job is to be caught out
+    /// of the corner of an eye, and it was too quiet on a tinted ground to do
+    /// it.
+    static let badge = Font.system(size: 12, weight: .semibold)
+    /// A row's active mark, sized to sit WITH the name rather than under it.
+    static let mark = Font.system(size: 15)
+    /// A section's own label.
+    static let sectionLabel = Font.system(size: 12.5, weight: .semibold)
+
     /// Progress-bar track — a faint neutral that adapts to light/dark.
     static let track = Color.primary.opacity(0.10)
 

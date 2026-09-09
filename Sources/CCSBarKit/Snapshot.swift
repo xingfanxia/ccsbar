@@ -38,7 +38,7 @@ enum Snapshot {
     /// resembles the live translucent menu-bar panel. Vibrancy blur is impossible
     /// headless, so a solid fill (windowBackgroundColor under the `appearance` set in
     /// `render`) with the panel's corner radius + a hairline border is the honest
-    /// approximation. No outer padding — the 340pt panel keeps the 680px-at-2x media
+    /// approximation. No outer padding — the 420pt panel keeps the 840px-at-2x media
     /// footprint; the rounded corners fall transparent.
     @MainActor
     private static func panelSurface(model: StatusModel, appearance: Appearance) -> some View {
@@ -314,7 +314,7 @@ enum Snapshot {
         if variant == "rename" { model.renaming = nonActive }
         // The codex add-account editor open on the Codex page (TABS-1) — pins the
         // two-row layout (field, then Cancel / Capture / Sign in) that keeps the
-        // primary verb un-truncated at 340pt.
+        // primary verb un-truncated at 420pt.
         if variant == "add-codex" { model.addingHarness = .codex }
         let skewNote = model.versionSkew.map { " skew=\($0)" } ?? ""
         let phaseNote = phase == .idle ? "" : " phase=\(phase)"

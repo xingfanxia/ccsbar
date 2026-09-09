@@ -32,11 +32,11 @@ struct TokensStrip: View {
 
     var body: some View {
         if let tokens = model.machineTokens {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 7) {
                 collapsedLine(tokens)
                 if expanded { detail(tokens) }
             }
-            .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
+            .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)
             .contentShape(Rectangle())
             .onHover { expanded = $0 }
         }
@@ -46,14 +46,14 @@ struct TokensStrip: View {
 
     private func collapsedLine(_ t: MachineTokens) -> some View {
         let today = t.periods.today
-        return HStack(spacing: 6) {
-            Image(systemName: "chart.bar.xaxis").font(.caption).foregroundStyle(.secondary)
-            Text("Tokens").font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
+        return HStack(spacing: 7) {
+            Image(systemName: "chart.bar.xaxis").font(Theme.fine).foregroundStyle(.secondary)
+            Text("Tokens").font(Theme.fine).fontWeight(.medium).foregroundStyle(.secondary)
             Text("today \(MachineTokens.formatCount(today.displayTokens, isFloor: !today.complete)) · \(MachineTokens.formatCost(today.costUsd, isFloor: today.costIsFloor))")
-                .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                .font(Theme.fine).monospacedDigit().foregroundStyle(.secondary)
             Spacer(minLength: 0)
             Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                .font(.system(size: 8)).foregroundStyle(.tertiary)
+                .font(.system(size: 10.5)).foregroundStyle(.tertiary)
         }
     }
 
@@ -61,7 +61,7 @@ struct TokensStrip: View {
 
     private func detail(_ t: MachineTokens) -> some View {
         let top = t.modelsPeriod.topModels(3)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 7) {
             periodRow("TODAY", t.periods.today)
             periodRow("WEEK", t.periods.week)
             periodRow("MONTH", t.periods.month)
@@ -69,40 +69,40 @@ struct TokensStrip: View {
             if !top.isEmpty {
                 Divider().padding(.vertical, 1)
                 Text("TOP MODELS · \(t.modelsBasis.rawValue)")
-                    .font(.system(size: 9)).fontWeight(.semibold).foregroundStyle(.tertiary)
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
                 ForEach(top) { modelRow($0) }
             }
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
+        .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         // Neutral wash (not a colored banner tint) — this is machine context, not an
         // alert; the primary-based fill reads as a quiet card in light and dark.
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func periodRow(_ label: String, _ p: TokenPeriod) -> some View {
-        HStack(spacing: 8) {
-            Text(label).font(.caption2).fontWeight(.semibold).foregroundStyle(.secondary)
-                .frame(width: 62, alignment: .leading)
+        HStack(spacing: 10) {
+            Text(label).font(Theme.micro).fontWeight(.semibold).foregroundStyle(.secondary)
+                .frame(width: 74, alignment: .leading)
             Text(MachineTokens.formatCount(p.displayTokens, isFloor: !p.complete))
-                .font(.caption).monospacedDigit()
+                .font(Theme.fine).monospacedDigit()
                 .frame(maxWidth: .infinity, alignment: .trailing)
             Text(MachineTokens.formatCost(p.costUsd, isFloor: p.costIsFloor))
-                .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                .frame(width: 62, alignment: .trailing)
+                .font(Theme.fine).monospacedDigit().foregroundStyle(.secondary)
+                .frame(width: 74, alignment: .trailing)
         }
     }
 
     private func modelRow(_ m: TokenModel) -> some View {
-        HStack(spacing: 8) {
-            Text(m.display).font(.caption2).foregroundStyle(.secondary)
+        HStack(spacing: 10) {
+            Text(m.display).font(Theme.micro).foregroundStyle(.secondary)
                 .lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(MachineTokens.formatCount(m.displayTokens, isFloor: !m.splitComplete))
-                .font(.caption2).monospacedDigit().foregroundStyle(.tertiary)
+                .font(Theme.micro).monospacedDigit().foregroundStyle(.tertiary)
             Text(MachineTokens.formatCost(m.costUsd))
-                .font(.caption2).monospacedDigit().foregroundStyle(.tertiary)
-                .frame(width: 54, alignment: .trailing)
+                .font(Theme.micro).monospacedDigit().foregroundStyle(.tertiary)
+                .frame(width: 65, alignment: .trailing)
         }
     }
 }

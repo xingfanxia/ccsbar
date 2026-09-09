@@ -25,27 +25,27 @@ struct CodexStrip: View {
                     activeLine(active)
                 }
             } else if !model.profiles(for: .codex).isEmpty {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     Image(systemName: "circle.dashed").foregroundStyle(.secondary)
-                    Text("No active codex account — pick one below.").font(.callout)
+                    Text("No active codex account — pick one below.").font(Theme.meta)
                     Spacer(minLength: 0)
                 }
             }
             // Zero codex profiles: no strip at all — the accounts section's
             // first-run door owns that state.
         }
-        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
+        .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)
     }
 
     // MARK: - Active line
 
     private func activeLine(_ active: ProfileStatus) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.codex)
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 13)).foregroundStyle(Theme.codex)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Active \(active.name) — codex uses this login")
-                    .font(.callout).fixedSize(horizontal: false, vertical: true)
-                Text(stampLine(active)).font(.subheadline).foregroundStyle(.secondary)
+                    .font(Theme.meta).fixedSize(horizontal: false, vertical: true)
+                Text(stampLine(active)).font(Theme.sub).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }
@@ -130,21 +130,21 @@ struct CodexStrip: View {
     }
 
     private func rateLimitCard(_ limited: (message: String, resetsAt: String?), for active: ProfileStatus) -> some View {
-        HStack(alignment: .top, spacing: 6) {
+        HStack(alignment: .top, spacing: 7) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 11)).foregroundStyle(Theme.warning)
+                .font(Theme.sub).foregroundStyle(Theme.warning)
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(limited.message) — auto-switch rotates at the session boundary")
-                    .font(.callout).fixedSize(horizontal: false, vertical: true)
+                    .font(Theme.meta).fixedSize(horizontal: false, vertical: true)
                 if let hint = Theme.resetHint(limited.resetsAt) {
-                    Text(hint).font(.subheadline).foregroundStyle(.secondary)
+                    Text(hint).font(Theme.sub).foregroundStyle(.secondary)
                 }
                 if let banked = Self.bankedLine(active) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.counterclockwise.circle").font(.system(size: 10))
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.counterclockwise.circle").font(.system(size: 12))
                         Text(banked)
                     }
-                    .font(.subheadline).foregroundStyle(Theme.codex)
+                    .font(Theme.sub).foregroundStyle(Theme.codex)
                     .help("A rate-limit reset OpenAI granted this account. Redeem it from the Codex app (Reset usage) — clauth only reads the count.")
                 }
             }

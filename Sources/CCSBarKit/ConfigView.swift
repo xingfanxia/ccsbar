@@ -23,16 +23,16 @@ struct ConfigView: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $model.showConfig) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 // Every control here needs a running daemon (socket-only commands).
                 // With the daemon down, disable + dim them and say why — a silent
                 // no-op is worse than a visibly-inert control (TECH-11).
                 let reachable = model.daemonReachable
                 if !reachable {
                     Label("Daemon not running — controls disabled", systemImage: "bolt.slash")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(Theme.sub).foregroundStyle(.secondary)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 5) {
                     // The armed-member removal confirm is rendered at the PANEL level
                     // (PanelView.removalConfirmBanner) so it's visible whether the
                     // remove came from this disclosure or the row context menu — the
@@ -46,9 +46,9 @@ struct ConfigView: View {
                     }
                     legends
                     if harness == .claude {
-                        Divider().padding(.vertical, 4)
+                        Divider().padding(.vertical, 5)
                         weeklyRow
-                        Divider().padding(.vertical, 4)
+                        Divider().padding(.vertical, 5)
                         wrapOffRadio
                     }
                 }
@@ -56,14 +56,14 @@ struct ConfigView: View {
                 .disabled(!reachable)
                 .opacity(reachable ? 1 : 0.45)
             }
-            .padding(.top, 8)
+            .padding(.top, 10)
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Label("Configure", systemImage: "slider.horizontal.3")
-                    .font(.body).fontWeight(.semibold)
+                    .font(Theme.body).fontWeight(.semibold)
                 if model.configBusy {
                     ProgressView().controlSize(.small)
-                    Text("Applying…").font(.subheadline).foregroundStyle(.secondary)
+                    Text("Applying…").font(Theme.sub).foregroundStyle(.secondary)
                 }
             }
         }
@@ -80,10 +80,10 @@ struct ConfigView: View {
 
     @ViewBuilder
     private func row(for p: ProfileStatus) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Text(p.name)
-                .font(.body).lineLimit(1).truncationMode(.tail)
-                .frame(width: 84, alignment: .leading)
+                .font(Theme.body).lineLimit(1).truncationMode(.tail)
+                .frame(width: 101, alignment: .leading)
 
             if let fb = p.fallback {
                 if model.thresholdEdit == .fiveHour(p.name) {
@@ -114,7 +114,7 @@ struct ConfigView: View {
                 Spacer()
                 Button { model.fallbackAdd(p.name) } label: {
                     Label("Add", systemImage: "plus.circle")
-                        .font(.body).foregroundStyle(Theme.accent)
+                        .font(Theme.body).foregroundStyle(Theme.accent)
                 }
                 .buttonStyle(.plain)
                 .help(ChainEdit.addHint)
@@ -134,12 +134,12 @@ struct ConfigView: View {
                 model.beginThresholdEdit(.fiveHour(p.name), current: "\(Int(fb.threshold))")
             }
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text(ChainEdit.currentThresholdLabel(fb.threshold)).monospacedDigit()
-                Image(systemName: "chevron.down").font(.system(size: 10))
+                Image(systemName: "chevron.down").font(.system(size: 12))
             }
-            .font(.body)
-            .padding(.vertical, 3).padding(.horizontal, 9)
+            .font(Theme.body)
+            .padding(.vertical, 4).padding(.horizontal, 11)
             .frame(minHeight: rowHeight - 6)
             .background(Color.primary.opacity(0.07), in: Capsule())
             .contentShape(Capsule())
@@ -155,7 +155,7 @@ struct ConfigView: View {
             Text(ChainEdit.thresholdLegend)
             Text(ChainEdit.lastResortLegend)
         }
-        .font(.subheadline).foregroundStyle(.secondary)
+        .font(Theme.sub).foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, 2)
     }
@@ -196,10 +196,10 @@ struct ConfigView: View {
     /// or the inline editor while a custom value is being typed. One value for
     /// the whole chain — auto-switch gates BOTH walk directions on it.
     private var weeklyRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 10) {
                 Text("Weekly limit")
-                    .font(.body).fontWeight(.medium)
+                    .font(Theme.body).fontWeight(.medium)
                 if model.thresholdEdit == .weekly {
                     customThresholdField(
                         valid: ChainEdit.parseWeeklyLine(model.thresholdDraft) != nil,
@@ -212,7 +212,7 @@ struct ConfigView: View {
             }
             .frame(height: rowHeight)
             Text(ChainEdit.weeklyLegend)
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(Theme.sub).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -229,12 +229,12 @@ struct ConfigView: View {
                     .replacingOccurrences(of: "%", with: ""))
             }
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text(ChainEdit.weeklyLabel(current)).monospacedDigit()
-                Image(systemName: "chevron.down").font(.system(size: 10))
+                Image(systemName: "chevron.down").font(.system(size: 12))
             }
-            .font(.body)
-            .padding(.vertical, 3).padding(.horizontal, 9)
+            .font(Theme.body)
+            .padding(.vertical, 4).padding(.horizontal, 11)
             .frame(minHeight: rowHeight - 6)
             .background(Color.primary.opacity(0.07), in: Capsule())
             .contentShape(Capsule())
@@ -250,20 +250,20 @@ struct ConfigView: View {
     /// the socket mirrors); ⎋ cancels; invalid input tints the field DANGER and
     /// keeps it open. `help` names the legal band.
     private func customThresholdField(valid: Bool, help: String) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
             TextField("", text: Binding(
                 get: { model.thresholdDraft },
                 set: { model.thresholdDraft = $0 }
             ))
             .textFieldStyle(.plain)
-            .font(.body.monospacedDigit())
+            .font(Theme.body.monospacedDigit())
             .multilineTextAlignment(.trailing)
-            .frame(width: 44)
+            .frame(width: 53)
             .onSubmit { model.commitThresholdEdit() }
             .onExitCommand { model.cancelThresholdEdit() }
-            Text("%").font(.body).foregroundStyle(.secondary)
+            Text("%").font(Theme.body).foregroundStyle(.secondary)
         }
-        .padding(.vertical, 3).padding(.horizontal, 9)
+        .padding(.vertical, 4).padding(.horizontal, 11)
         .frame(minHeight: rowHeight - 6)
         .background(Color.primary.opacity(0.07), in: Capsule())
         .overlay(Capsule().strokeBorder(
@@ -274,9 +274,9 @@ struct ConfigView: View {
     // MARK: - Wrap-off as an outcome-language radio (§7)
 
     private var wrapOffRadio: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             Text("When every account is over its limit")
-                .font(.body).fontWeight(.medium)
+                .font(Theme.body).fontWeight(.medium)
             radioOption(ChainEdit.stayOnLastLabel, detail: nil, selected: !status.wrapOff) {
                 if status.wrapOff { model.setWrapOff(false) }
             }
@@ -290,15 +290,15 @@ struct ConfigView: View {
 
     private func radioOption(_ title: String, detail: String?, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                     .font(.system(size: 15))
                     .foregroundStyle(selected ? Theme.accent : Color.secondary)
-                    .frame(width: 22, height: 22)
+                    .frame(width: 26, height: 26)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.body)
+                    Text(title).font(Theme.body)
                     if let detail {
-                        Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                        Text(detail).font(Theme.sub).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

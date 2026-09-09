@@ -24,7 +24,7 @@ struct StatusStrip: View {
                 forecast(sentence)
             }
         }
-        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
+        .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)
     }
 
     // Dead = a frozen-but-present status (stalled); a never-written file is the
@@ -35,13 +35,13 @@ struct StatusStrip: View {
     // MARK: - Wrap-off card (§3.15)
 
     private var wrapOffCard: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Image(systemName: "powersleep").foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 1) {
-                Text("All accounts switched off — chain spent.").font(.callout)
+                Text("All accounts switched off — chain spent.").font(Theme.meta)
                 if let eta = model.wrapOffResumeETA {
                     Text("Auto-resumes when a window \(eta.replacingOccurrences(of: "resets in", with: "resets in ≤"))")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(Theme.sub).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
@@ -52,22 +52,22 @@ struct StatusStrip: View {
 
     private var zeroArmed: some View {
         let chainEmpty = model.status?.fallbackChain.isEmpty ?? true
-        return HStack(spacing: 8) {
+        return HStack(spacing: 10) {
             Image(systemName: "bolt.slash.fill").foregroundStyle(Theme.warning)
             if chainEmpty {
-                Text("Auto-switch off — no fallback chain.").font(.callout)
+                Text("Auto-switch off — no fallback chain.").font(Theme.meta)
                 Spacer(minLength: 0)
                 Button { model.showConfig = true } label: {
-                    Text("Set up").font(.subheadline).fontWeight(.medium).foregroundStyle(Theme.accent)
+                    Text("Set up").font(Theme.sub).fontWeight(.medium).foregroundStyle(Theme.accent)
                 }
                 .buttonStyle(.plain)
             } else {
                 Text("Auto-switch idle — \(model.active?.name ?? "the active account") isn't armed.")
-                    .font(.callout)
+                    .font(Theme.meta)
                 Spacer(minLength: 0)
                 if let name = model.active?.name {
                     Button { model.fallbackAdd(name) } label: {
-                        Text("Add \(name)").font(.subheadline).fontWeight(.medium).foregroundStyle(Theme.accent)
+                        Text("Add \(name)").font(Theme.sub).fontWeight(.medium).foregroundStyle(Theme.accent)
                     }
                     .buttonStyle(.plain)
                 }
@@ -78,11 +78,11 @@ struct StatusStrip: View {
     // MARK: - Forecast sentence (§3.11)
 
     private func forecast(_ sentence: String) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundStyle(Theme.sapphire)
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: "bolt.fill").font(.system(size: 13)).foregroundStyle(Theme.sapphire)
             VStack(alignment: .leading, spacing: 2) {
-                Text(sentence).font(.callout).fixedSize(horizontal: false, vertical: true)
-                Text(model.livenessStamp).font(.subheadline).foregroundStyle(.secondary)
+                Text(sentence).font(Theme.meta).fixedSize(horizontal: false, vertical: true)
+                Text(model.livenessStamp).font(Theme.sub).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }
@@ -97,17 +97,17 @@ struct DeadDaemonBanner: View {
     @ObservedObject var model: StatusModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Rectangle().fill(Theme.danger).frame(width: 3).cornerRadius(1.5)
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: 10) {
+            Rectangle().fill(Theme.danger).frame(width: 4).cornerRadius(1.5)
+            VStack(alignment: .leading, spacing: 5) {
                 Text("Daemon not responding — data frozen \(model.frozenAge)")
-                    .font(.body).fontWeight(.semibold)
+                    .font(Theme.body).fontWeight(.semibold)
                 Text("Auto-switch is NOT running.")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                HStack(spacing: 8) {
+                    .font(Theme.sub).foregroundStyle(.secondary)
+                HStack(spacing: 10) {
                     Button("Start daemon") { model.startDaemon() }
                         .buttonStyle(.borderedProminent).controlSize(.small)
-                    Text("clauth daemon").font(.system(size: 12, design: .monospaced))
+                    Text("clauth daemon").font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.secondary)
                     Button {
                         NSPasteboard.general.clearContents()
@@ -129,23 +129,23 @@ struct SwitchLifecycleRow: View {
     let currentName: String?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             switch phase {
             case .arming(let target):
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Theme.danger)
                 Text("Confirm — live session on \(currentName ?? "current"); switching to \(target)")
-                    .font(.callout).foregroundStyle(.primary)
+                    .font(Theme.meta).foregroundStyle(.primary)
             case .pending(let target):
                 ProgressView().controlSize(.small)
-                Text("Switching to \(target)…").font(.callout)
+                Text("Switching to \(target)…").font(Theme.meta)
             case .confirmed(let target, let viaCLI):
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success)
                 Text(viaCLI ? "Switched to \(target) via CLI — auto-switch inactive until daemon starts"
                             : "Switched to \(target)")
-                    .font(.callout)
+                    .font(Theme.meta)
             case .failed(let reason):
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.danger)
-                Text(reason).font(.callout).fixedSize(horizontal: false, vertical: true)
+                Text(reason).font(Theme.meta).fixedSize(horizontal: false, vertical: true)
             case .idle:
                 EmptyView()
             }

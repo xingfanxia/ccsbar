@@ -11,13 +11,13 @@ struct DetailCard: View {
     let dead: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             header
             // CAP-3: WHICH account this profile's login belongs to — the
             // 2026-07-12 double-poll went unseen because no surface showed it.
             if let email = p.accountEmail {
                 Text(email)
-                    .font(.caption)
+                    .font(Theme.fine)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -37,7 +37,7 @@ struct DetailCard: View {
                    fed: p.rollingToken
                ) {
                 Text(line.text)
-                    .font(.caption)
+                    .font(Theme.fine)
                     .foregroundStyle(line.tone == .danger ? Theme.danger
                         : line.tone == .warning ? Theme.warning : .secondary)
                     .lineLimit(1)
@@ -59,23 +59,23 @@ struct DetailCard: View {
             }
             switchSurface
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 19)
     }
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(p.name).font(.title3).fontWeight(.semibold)
-            Text("· \(p.tier ?? providerLabel)").font(.subheadline).foregroundStyle(.secondary)
+            Text(p.name).font(Theme.title).fontWeight(.semibold)
+            Text("· \(p.tier ?? providerLabel)").font(Theme.sub).foregroundStyle(.secondary)
             Spacer()
             Text(dead ? "as of \(model.frozenAge)" : "Fresh · \(model.freshAge)")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(Theme.sub).foregroundStyle(.secondary)
         }
     }
 
     // MARK: - Windows
 
     private var windows: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             windowRow("Session 5h", p.fiveHour, tick: p.fallback?.threshold)
             windowRow("Weekly 7d", p.sevenDay, tick: nil)
             // Fable is a limited-trial window — shown only while the daemon still
@@ -91,7 +91,7 @@ struct DetailCard: View {
     /// never a phantom "Session 5h —". The threshold tick renders only on a real
     /// 5h row (chain thresholds are 5h semantics).
     @ViewBuilder private var codexWindows: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             if let five = p.fiveHour {
                 windowRow("Session 5h", five, tick: p.fallback?.threshold)
             }
@@ -100,38 +100,38 @@ struct DetailCard: View {
             }
             if p.fiveHour == nil, p.sevenDay == nil {
                 Text("No usage data yet — appears after the first codex turn.")
-                    .font(.subheadline).foregroundStyle(.tertiary)
+                    .font(Theme.sub).foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 
     private func windowRow(_ label: String, _ w: UsageWindow?, tick: Double?) -> some View {
-        HStack(spacing: 8) {
-            Text(label).font(.body).fontWeight(.medium).frame(width: 88, alignment: .leading)
+        HStack(spacing: 10) {
+            Text(label).font(Theme.body).fontWeight(.medium).frame(width: 106, alignment: .leading)
             UsageBar(
                 pct: w?.utilizationPct ?? 0,
                 color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(w?.utilizationPct ?? 0, threshold: tick ?? 100),
-                height: 6, threshold: tick
+                height: 7, threshold: tick
             )
             Text(w.map { "\(Int($0.utilizationPct.rounded()))%" } ?? "—")
-                .font(.body).monospacedDigit().frame(width: 40, alignment: .trailing)
+                .font(Theme.body).monospacedDigit().frame(width: 48, alignment: .trailing)
             Text(dead ? "" : (Theme.resetHint(w?.resetsAt).map { String($0.dropFirst("resets in ".count)) } ?? ""))
-                .font(.subheadline).foregroundStyle(.secondary).frame(width: 64, alignment: .trailing)
+                .font(Theme.sub).foregroundStyle(.secondary).frame(width: 77, alignment: .trailing)
         }
     }
 
     private var thirdPartyDetail: some View {
         let available = p.thirdParty?.available
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 7) {
                 Circle().fill(available == true ? Theme.success : (available == false ? Theme.danger : Color.secondary))
-                    .frame(width: 7, height: 7)
+                    .frame(width: 8, height: 8)
                 Text(available == true ? "Available" : (available == false ? "Unavailable" : "No data yet"))
-                    .font(.body)
+                    .font(Theme.body)
             }
             if let host = p.baseUrl {
-                Text(host).font(.subheadline).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                Text(host).font(Theme.sub).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
         }
     }
@@ -141,11 +141,11 @@ struct DetailCard: View {
         // sapphire bolt of a watched/rotating member — keyed on the explicit
         // `last_resort` flag, not threshold-100 (the two are independent now).
         let lastResort = p.fallback?.lastResort == true
-        return HStack(alignment: .top, spacing: 5) {
+        return HStack(alignment: .top, spacing: 6) {
             Image(systemName: lastResort ? "flag.fill" : "bolt.fill")
-                .font(.system(size: 10))
+                .font(Theme.micro)
                 .foregroundStyle(lastResort ? Color.secondary : Theme.sapphire)
-            Text(text).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(text).font(Theme.meta).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -181,16 +181,16 @@ struct DetailCard: View {
     private var identityVerb: Color { p.isCodex ? Theme.codex : Theme.actVerb }
 
     private var activeState: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 6) {
             HStack {
                 Spacer()
                 Label(p.hasLiveSession ? "Active account · live session attached" : "Active account",
                       systemImage: "checkmark.circle.fill")
-                    .font(.subheadline).foregroundStyle(identity)
+                    .font(Theme.sub).foregroundStyle(identity)
                 Spacer()
             }
-            .frame(height: 28)
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(identity.opacity(0.5), lineWidth: 1))
+            .frame(height: 34)
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(identity.opacity(0.5), lineWidth: 1))
             // The active account has no switch verb — so name the path. This is the
             // one spot a first-time user looks for "how do I switch?" (the panel opens
             // with the active account inspected, i.e. on exactly this card). The count
@@ -198,7 +198,7 @@ struct DetailCard: View {
             // single-codex page must not point at claude rows it doesn't show.
             if model.profiles(for: p.harnessKind).count > 1 {
                 Text("Pick another account above to switch to it.")
-                    .font(.caption).foregroundStyle(.tertiary)
+                    .font(Theme.fine).foregroundStyle(.tertiary)
             }
         }
     }
@@ -212,12 +212,12 @@ struct DetailCard: View {
     private var reauthSurface: some View {
         let inFlight = model.reauthInFlight == p.name
         let cli = p.isCodex ? "clauth login \(p.name) --codex --browser" : "clauth login \(p.name)"
-        return VStack(spacing: 5) {
-            HStack(spacing: 5) {
+        return VStack(spacing: 6) {
+            HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.shield.fill")
-                    .font(.system(size: 11)).foregroundStyle(Theme.danger)
+                    .font(Theme.sub).foregroundStyle(Theme.danger)
                 Text("This account's login expired — re-authenticate to use it again.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(Theme.fine).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
             }
@@ -233,8 +233,8 @@ struct DetailCard: View {
                     }
                     Spacer()
                 }
-                .font(.body).fontWeight(.semibold).frame(height: 28).foregroundStyle(.white)
-                .background(identityVerb.opacity(inFlight ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 8))
+                .font(Theme.body).fontWeight(.semibold).frame(height: 34).foregroundStyle(.white)
+                .background(identityVerb.opacity(inFlight ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .disabled(model.reauthInFlight != nil)
@@ -273,9 +273,9 @@ struct DetailCard: View {
 
     private func verbButton(title: String, tint: Color, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack { Spacer(); Text(title).font(.body).fontWeight(.semibold); Spacer() }
-                .frame(height: 28).foregroundStyle(.white)
-                .background(tint.opacity(disabled ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 8))
+            HStack { Spacer(); Text(title).font(Theme.body).fontWeight(.semibold); Spacer() }
+                .frame(height: 34).foregroundStyle(.white)
+                .background(tint.opacity(disabled ? 0.5 : 1), in: RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain).disabled(disabled)
         .keyboardShortcut(.return, modifiers: .command)
@@ -288,9 +288,9 @@ struct DetailCard: View {
     }
 
     private func disabledVerb(_ title: String) -> some View {
-        HStack { Spacer(); Text(title).font(.subheadline); Spacer() }
-            .frame(height: 28).foregroundStyle(.secondary)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        HStack { Spacer(); Text(title).font(Theme.sub); Spacer() }
+            .frame(height: 34).foregroundStyle(.secondary)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
     }
 
     // clauth emits the provider's own display name (`anthropic` for OAuth, else a

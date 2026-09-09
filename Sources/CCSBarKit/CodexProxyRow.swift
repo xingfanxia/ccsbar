@@ -16,27 +16,27 @@ struct CodexProxyRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             PanelSwitchToggle(isOn: Binding(get: { routed }, set: { setRouting($0) })) {
-                HStack(spacing: 8) {
-                    Image(systemName: "network").frame(width: 16)
-                    Text("Proxy mode").font(.body)
+                HStack(spacing: 10) {
+                    Image(systemName: "network").frame(width: 19)
+                    Text("Proxy mode").font(Theme.body)
                     Spacer()
                     Text(caption)
-                        .font(.caption2)
+                        .font(Theme.micro)
                         .foregroundStyle(captionStyle)
                 }
             }
             if let error {
-                Text(error).font(.caption2).foregroundStyle(Theme.danger)
+                Text(error).font(Theme.micro).foregroundStyle(Theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if hovering {
                 Text(explainer)
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(Theme.micro).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
             }
         }
-        .padding(.vertical, 5).padding(.horizontal, 8)
+        .padding(.vertical, 6).padding(.horizontal, 10)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onAppear(perform: refresh)

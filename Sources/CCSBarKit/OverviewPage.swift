@@ -11,13 +11,13 @@ struct OverviewPage: View {
     let dead: Bool
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 7) {
             ForEach(Harness.allCases, id: \.self) { harness in
                 HarnessCard(model: model, harness: harness, dead: dead)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(.horizontal, 14)
+        .padding(.top, 7)
         .opacity(dead ? 0.6 : 1)
     }
 }
@@ -36,28 +36,28 @@ private struct HarnessCard: View {
 
     var body: some View {
         Button { model.tab = tab } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 7) {
                 header
                 if let active {
                     identityLine(active)
                     bars(active)
                 } else if count > 0 {
                     Text("No active account — pick one on the \(tab.title) page.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(Theme.fine).foregroundStyle(.secondary)
                 } else {
                     Text(harness == .codex
                          ? "No codex accounts yet — set up in the Codex tab."
                          : "No Claude accounts yet — set up in the Claude tab.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(Theme.fine).foregroundStyle(.secondary)
                 }
             }
-            .padding(.vertical, 8).padding(.horizontal, 10)
+            .padding(.vertical, 10).padding(.horizontal, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 9)
+                RoundedRectangle(cornerRadius: 11)
                     .fill(Color.primary.opacity(hovering ? 0.06 : 0.035))
             )
-            .contentShape(RoundedRectangle(cornerRadius: 9))
+            .contentShape(RoundedRectangle(cornerRadius: 11))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -66,27 +66,27 @@ private struct HarnessCard: View {
     }
 
     private var header: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             // The provider's BRAND glyph (TABS-1.2, from codexbar's icon set),
             // tinted with the harness identity hue.
             ProviderGlyphView(tab: tab, size: 13)
                 .foregroundStyle(tab.tint ?? Theme.accent)
-            Text(tab.title).font(.body).fontWeight(.semibold)
+            Text(tab.title).font(Theme.body).fontWeight(.semibold)
             if let tier = active?.tier {
-                Text(tier).font(.subheadline).foregroundStyle(.secondary)
+                Text(tier).font(Theme.sub).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
             Text(dead ? "as of \(model.frozenAge)" : "updated \(model.freshAge) ago")
-                .font(.caption).foregroundStyle(.tertiary)
-            Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(.tertiary)
+                .font(Theme.fine).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(.tertiary)
         }
     }
 
     private func identityLine(_ active: ProfileStatus) -> some View {
-        HStack(spacing: 5) {
-            Text(active.name).font(.callout).fontWeight(.medium)
+        HStack(spacing: 6) {
+            Text(active.name).font(Theme.meta).fontWeight(.medium)
             if let email = active.accountEmail {
-                Text(email).font(.caption).foregroundStyle(.secondary)
+                Text(email).font(Theme.fine).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle)
             }
             Spacer(minLength: 0)
@@ -96,7 +96,7 @@ private struct HarnessCard: View {
     /// Only the windows that exist (codex is weekly-only since 2026-07 — a
     /// dashed phantom "5h —" bar would mislead more than a single honest 7d).
     private func bars(_ active: ProfileStatus) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             if let five = active.fiveHour {
                 miniBar("5h", five.utilizationPct, threshold: active.fallback?.threshold)
             }
@@ -104,24 +104,24 @@ private struct HarnessCard: View {
                 miniBar("7d", seven.utilizationPct, threshold: nil)
             }
             if active.fiveHour == nil, active.sevenDay == nil {
-                Text("No usage data yet").font(.caption).foregroundStyle(.tertiary)
+                Text("No usage data yet").font(Theme.fine).foregroundStyle(.tertiary)
                 Spacer(minLength: 0)
             }
         }
     }
 
     private func miniBar(_ label: String, _ pct: Double?, threshold: Double?) -> some View {
-        HStack(spacing: 5) {
-            Text(label).font(.caption).foregroundStyle(.tertiary)
+        HStack(spacing: 6) {
+            Text(label).font(Theme.fine).foregroundStyle(.tertiary)
             UsageBar(
                 pct: pct ?? 0,
                 color: dead ? Color.secondary.opacity(0.5)
                             : Theme.usageColor(pct ?? 0, threshold: threshold ?? 100),
-                height: 4
+                height: 5
             )
             .frame(maxWidth: .infinity)
             Text(pct.map { "\(Int($0.rounded()))%" } ?? "—")
-                .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                .font(Theme.fine).monospacedDigit().foregroundStyle(.secondary)
         }
     }
 

@@ -18,7 +18,7 @@ struct AccountRow: View {
     @State private var hovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             header
             // WHICH login this profile holds (CAP-3), a dim caption indented
             // under the name — the list-row sibling of DetailCard's email line
@@ -26,11 +26,11 @@ struct AccountRow: View {
             // provider gate is needed.
             if let email = p.accountEmail {
                 Text(email)
-                    .font(.caption)
+                    .font(Theme.fine)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .padding(.leading, 18)
+                    .padding(.leading, 22)
                     .padding(.top, -3)
             }
             // Codex profiles publish `provider == "openai"` but carry %-windows
@@ -47,15 +47,15 @@ struct AccountRow: View {
                 secondaryRow
             }
         }
-        .padding(.vertical, 7).padding(.horizontal, 10)
+        .padding(.vertical, 8).padding(.horizontal, 12)
         .background(
             // Inspected owns the 0.08 fill + ring; a bare hover gets a lighter 0.045
             // wash — a quieter cousin of ActionRow's 0.08 hover — so rows read as
             // clickable without masquerading as inspected.
-            RoundedRectangle(cornerRadius: 9)
+            RoundedRectangle(cornerRadius: 11)
                 .fill(Color.primary.opacity(inspected ? 0.08 : (hovering ? 0.045 : 0)))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 9)
+                    RoundedRectangle(cornerRadius: 11)
                         .strokeBorder(Color.primary.opacity(inspected ? 0.18 : 0), lineWidth: 1)
                 )
         )
@@ -76,19 +76,19 @@ struct AccountRow: View {
     // MARK: - Header (badge + name + tier + badge cluster)
 
     private var header: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             // Active mark wears the harness's identity hue (TABS-1.1):
             // terracotta = claude, royal blue = codex.
             Image(systemName: p.active ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
+                .font(Theme.mark)
                 .foregroundStyle(p.active ? (p.isCodex ? Theme.codex : Theme.accent) : Color.secondary)
             // A spent account's name mutes — a pre-attentive "this one's unavailable".
-            Text(p.name).font(.body).fontWeight(.semibold).lineLimit(1).truncationMode(.tail)
+            Text(p.name).font(Theme.title).lineLimit(1).truncationMode(.tail)
                 .foregroundStyle(rowSpentTag != nil ? Color.secondary : Color.primary)
             if let tier = p.tier {
-                Text(tier).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                Text(tier).font(Theme.meta).foregroundStyle(.secondary).lineLimit(1)
             } else if p.provider != "anthropic" {
-                Text(providerLabel).font(.subheadline).foregroundStyle(.secondary)
+                Text(providerLabel).font(Theme.meta).foregroundStyle(.secondary)
             }
             // INT-2: a small "codex" harness tag so a user seeing TWO checkmarked rows
             // (one claude-active, one codex-active) reads them as two independent slots,
@@ -96,8 +96,8 @@ struct AccountRow: View {
             // Hidden inside harness-scoped pages (TABS-1 — the tab already scopes it).
             if p.isCodex && showHarnessTag {
                 Text("codex")
-                    .font(.system(size: 10)).fontWeight(.medium)
-                    .padding(.vertical, 1).padding(.horizontal, 5)
+                    .font(Theme.badge)
+                    .padding(.vertical, 1).padding(.horizontal, 6)
                     .background(Color.primary.opacity(0.08), in: Capsule())
                     .foregroundStyle(.secondary)
                     .fixedSize()
@@ -116,7 +116,7 @@ struct AccountRow: View {
     private var rowSpentTag: String? { dead ? nil : p.spentTag }
 
     @ViewBuilder private var badgeCluster: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             // A dead login gets a WORDED danger pill, not an icon-only glyph: its
             // fetches surface as RateLimited/Cached (the 429 mask), and an icon
             // beside a "RateLimited" text lost that fight — the operator read the
@@ -124,8 +124,8 @@ struct AccountRow: View {
             // (observed 2026-07-12).
             if p.authBroken {
                 Label("login expired", systemImage: "exclamationmark.shield.fill")
-                    .font(.system(size: 10)).fontWeight(.medium).fixedSize()
-                    .padding(.vertical, 1).padding(.horizontal, 5)
+                    .font(Theme.badge).fixedSize()
+                    .padding(.vertical, 1).padding(.horizontal, 6)
                     .background(Theme.danger.opacity(0.18), in: Capsule())
                     .foregroundStyle(Theme.danger)
                     .help("Login expired — clauth login \(p.name)")
@@ -134,8 +134,8 @@ struct AccountRow: View {
             // used until it resets. A danger pill naming the spent window (§5 danger).
             if let tag = rowSpentTag {
                 Text(tag)
-                    .font(.system(size: 10)).fontWeight(.medium).fixedSize()
-                    .padding(.vertical, 1).padding(.horizontal, 5)
+                    .font(Theme.badge).fixedSize()
+                    .padding(.vertical, 1).padding(.horizontal, 6)
                     .background(Theme.danger.opacity(0.18), in: Capsule())
                     .foregroundStyle(Theme.danger)
                     .help("This account has hit a usage limit — unavailable until it resets")
@@ -159,8 +159,8 @@ struct AccountRow: View {
                         : String(localized: "\(banked) resets"),
                     systemImage: "arrow.counterclockwise"
                 )
-                .font(.system(size: 10)).fontWeight(.semibold).fixedSize()
-                .padding(.vertical, 1).padding(.horizontal, 5)
+                .font(Theme.badge).fixedSize()
+                .padding(.vertical, 1).padding(.horizontal, 6)
                 .background(Theme.codex.opacity(0.22), in: Capsule())
                 .foregroundStyle(Theme.codex)
                 .help(banked == 1
@@ -171,22 +171,22 @@ struct AccountRow: View {
             // will rotate away from it at its threshold (sapphire = the armed hue, §5).
             if p.fallback?.armed == true {
                 Label("watching", systemImage: "bolt.fill")
-                    .font(.system(size: 10)).fontWeight(.medium).foregroundStyle(Theme.sapphire).fixedSize()
+                    .font(Theme.badge).foregroundStyle(Theme.sapphire).fixedSize()
                     .help("Auto-switch is watching this account — it rotates away at the threshold")
             }
             if p.fallback?.lastResort == true {
-                Image(systemName: "flag.fill").font(.system(size: 10)).foregroundStyle(.secondary)
+                Image(systemName: "flag.fill").font(Theme.badge).foregroundStyle(.secondary)
                     .help(ChainEdit.lastResortLegend)
             }
             if p.hasLiveSession {
-                Text("in use").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("in use").font(Theme.badge).foregroundStyle(.secondary)
                     .help("A claude session is attached to this account")
             }
             // Suppressed while the login is broken: the stale fetch status is a
             // CONSEQUENCE of the dead login (its 429/cached reads), and showing
             // both makes the transient-looking one win attention.
             if !p.authBroken, p.isStale, let fs = p.fetchStatus {
-                Text(fs).font(.system(size: 10)).foregroundStyle(Theme.warning)
+                Text(fs).font(Theme.badge).foregroundStyle(Theme.warning)
             }
         }
     }
@@ -197,18 +197,18 @@ struct AccountRow: View {
 
     private func heroRow(_ label: String, _ w: UsageWindow?, tick: Double?) -> some View {
         let pct = w?.utilizationPct ?? 0
-        return VStack(spacing: 3) {
+        return VStack(spacing: 4) {
             UsageBar(
                 pct: pct,
                 color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct, threshold: tick ?? 100),
-                height: 6,
+                height: 7,
                 threshold: tick
             )
             HStack {
-                Text(label).font(.caption).foregroundStyle(.tertiary)
-                Text("\(Int(pct.rounded()))%").font(.body).fontWeight(.semibold).monospacedDigit()
+                Text(label).font(Theme.fine).foregroundStyle(.tertiary)
+                Text("\(Int(pct.rounded()))%").font(Theme.figure)
                 Spacer()
-                Text(stamp(w?.resetsAt)).font(.subheadline).foregroundStyle(.secondary)
+                Text(stamp(w?.resetsAt)).font(Theme.meta).foregroundStyle(.secondary)
             }
         }
     }
@@ -229,14 +229,14 @@ struct AccountRow: View {
                 secondaryRow
             }
         } else {
-            Text("No usage data yet").font(.subheadline).foregroundStyle(.tertiary)
+            Text("No usage data yet").font(Theme.meta).foregroundStyle(.tertiary)
         }
     }
 
     // MARK: - 7d / Fable secondary row (half-width bars + shared weekly reset)
 
     private var secondaryRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             miniBar("7d", p.sevenDay?.utilizationPct)
             // Fable is a limited-trial window — render it only while the daemon still
             // reports it. The trial window simply drops out of status.json when it
@@ -248,7 +248,7 @@ struct AccountRow: View {
             // A SINGLE weekly reset countdown (7d and Fable share the weekly
             // boundary), right-aligned to mirror the 5h row's "resets in …".
             if let stamp = weeklyResetStamp {
-                Text(stamp).font(.subheadline).foregroundStyle(.secondary).fixedSize()
+                Text(stamp).font(Theme.meta).foregroundStyle(.secondary).fixedSize()
             }
         }
     }
@@ -262,11 +262,11 @@ struct AccountRow: View {
     }
 
     private func miniBar(_ label: String, _ pct: Double?) -> some View {
-        HStack(spacing: 5) {
-            Text(label).font(.caption).foregroundStyle(.tertiary)
-            UsageBar(pct: pct ?? 0, color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct ?? 0), height: 4)
+        HStack(spacing: 6) {
+            Text(label).font(Theme.fine).foregroundStyle(.tertiary)
+            UsageBar(pct: pct ?? 0, color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct ?? 0), height: 5)
                 .frame(maxWidth: .infinity)
-            Text(pct.map { "\(Int($0.rounded()))%" } ?? "—").font(.callout).monospacedDigit()
+            Text(pct.map { "\(Int($0.rounded()))%" } ?? "—").font(Theme.meta.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
     }
@@ -282,11 +282,11 @@ struct AccountRow: View {
             case .none: return ("No data yet", .secondary)
             }
         }()
-        return HStack(spacing: 6) {
-            Circle().fill(dead ? Color.secondary : color).frame(width: 7, height: 7)
-            Text(text).font(.subheadline).foregroundStyle(.secondary)
+        return HStack(spacing: 7) {
+            Circle().fill(dead ? Color.secondary : color).frame(width: 8, height: 8)
+            Text(text).font(Theme.meta).foregroundStyle(.secondary)
             if let checked = stampChecked(p.fetchedAt) {
-                Text("· \(checked)").font(.subheadline).foregroundStyle(.tertiary)
+                Text("· \(checked)").font(Theme.meta).foregroundStyle(.tertiary)
             }
         }
     }
