@@ -19,6 +19,16 @@ enum MenuBarLabelLadder {
         var trailingSymbol: String? = nil
         var nearThresholdDot: Bool = false
         var availabilityDot: Bool? = nil // nil = none; true/false = up/down
+        /// FLEET-1: draw [`FleetBars`] in place of the gauge glyph.
+        ///
+        /// Only the ordinary rungs (9 / 7 / 6 — a live daemon reporting a
+        /// healthy or loaded active account) set this. The exceptional rungs
+        /// keep their glyph, because the glyph IS the state there: a warning
+        /// triangle for a dead daemon, an ellipsis mid-switch, the rotation
+        /// arrows, `powersleep` for all-off. Trading one of those for a pair of
+        /// fleet bars would hide the one thing the operator has to act on
+        /// behind a number that is merely interesting.
+        var showsFleetBars: Bool = false
     }
 
     private static let gauge = "gauge.with.dots.needle.bottom.50percent"
@@ -80,12 +90,23 @@ enum MenuBarLabelLadder {
 
         // (6) 5h ≥ threshold, (7) ≥ 0.8×threshold, (9) normal.
         if pct >= threshold {
-            return Spec(symbol: gaugeHigh, text: text, trailingSymbol: trailing)
+            return Spec(
+                symbol: gaugeHigh,
+                text: text,
+                trailingSymbol: trailing,
+                showsFleetBars: true
+            )
         }
         if pct >= 0.8 * threshold {
-            return Spec(symbol: gauge, text: text, trailingSymbol: trailing, nearThresholdDot: true)
+            return Spec(
+                symbol: gauge,
+                text: text,
+                trailingSymbol: trailing,
+                nearThresholdDot: true,
+                showsFleetBars: true
+            )
         }
-        return Spec(symbol: gauge, text: text, trailingSymbol: trailing)
+        return Spec(symbol: gauge, text: text, trailingSymbol: trailing, showsFleetBars: true)
     }
 
     /// The active account name, tail-truncated to the label's 12-char budget.

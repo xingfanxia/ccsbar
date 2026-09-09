@@ -115,8 +115,18 @@ struct CodexStrip: View {
     /// only when the daemon has actually carried a count (nil = silent; a
     /// zero is silent too, since "0 banked" is noise next to a limit card).
     static func bankedLine(_ p: ProfileStatus) -> String? {
-        guard let n = p.codexResetCredits, n > 0 else { return nil }
+        guard let n = bankedCount(p) else { return nil }
         return n == 1 ? "1 free reset banked" : "\(n) free resets banked"
+    }
+
+    /// The banked count worth showing, or `nil` when there is nothing to say:
+    /// a daemon that never carried the field (older, or a claude profile) and a
+    /// zero are both silent — "0 banked" is noise, and an absent count is not a
+    /// zero. Shared with the account row's chip so the two surfaces cannot
+    /// disagree about when a reset exists.
+    static func bankedCount(_ p: ProfileStatus) -> Int? {
+        guard let n = p.codexResetCredits, n > 0 else { return nil }
+        return n
     }
 
     private func rateLimitCard(_ limited: (message: String, resetsAt: String?), for active: ProfileStatus) -> some View {

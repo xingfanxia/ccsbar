@@ -75,8 +75,18 @@ private struct MenuBarLabel: View {
             rotationFlash: model.rotationFlash,
             now: Date()
         )
+        let fleet = FleetUsage.compute(model.status)
         HStack(spacing: 3) {
-            Image(systemName: spec.symbol)
+            // FLEET-1: on the ordinary rungs the fleet bars REPLACE the gauge
+            // glyph rather than joining it. The glyph said "this is a usage
+            // reading" — which the bars say better, and by showing the whole
+            // pool instead of one account — and the menu bar has no room for
+            // both. Every exceptional rung keeps its glyph (see `Spec`).
+            if spec.showsFleetBars && !fleet.isEmpty {
+                FleetBars(fleet: fleet)
+            } else {
+                Image(systemName: spec.symbol)
+            }
             if spec.nearThresholdDot {
                 Image(systemName: "circlebadge.fill").font(.system(size: 5))
             }

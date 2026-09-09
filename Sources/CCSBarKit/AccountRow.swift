@@ -140,6 +140,21 @@ struct AccountRow: View {
                     .foregroundStyle(Theme.danger)
                     .help("This account has hit a usage limit — unavailable until it resets")
             }
+            // FLEET-1: banked reset credits, on EVERY codex row that has one —
+            // not only beside a spent window, where the Codex page used to be
+            // the single surface. A banked reset is an ASSET you can spend to
+            // reopen a window early, so it changes which account you pick
+            // BEFORE anything is spent; hiding it until the limit lands is
+            // showing it exactly when it is too late to plan around. Neutral
+            // (codex teal, not danger) for the same reason: nothing is wrong.
+            if let banked = CodexStrip.bankedCount(p) {
+                Label("\(banked)", systemImage: "arrow.counterclockwise.circle")
+                    .font(.system(size: 10)).fontWeight(.medium).fixedSize()
+                    .foregroundStyle(Theme.codex)
+                    .help(banked == 1
+                        ? "1 free rate-limit reset banked on this account — redeem it from the Codex app (Reset usage); clauth only reads the count"
+                        : "\(banked) free rate-limit resets banked on this account — redeem them from the Codex app (Reset usage); clauth only reads the count")
+            }
             // "watching" (not a bare bolt): auto-switch is watching this account and
             // will rotate away from it at its threshold (sapphire = the armed hue, §5).
             if p.fallback?.armed == true {
