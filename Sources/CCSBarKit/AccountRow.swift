@@ -148,12 +148,24 @@ struct AccountRow: View {
             // showing it exactly when it is too late to plan around. Neutral
             // (codex teal, not danger) for the same reason: nothing is wrong.
             if let banked = CodexStrip.bankedCount(p) {
-                Label("\(banked)", systemImage: "arrow.counterclockwise.circle")
-                    .font(.system(size: 10)).fontWeight(.medium).fixedSize()
-                    .foregroundStyle(Theme.codex)
-                    .help(banked == 1
-                        ? "1 free rate-limit reset banked on this account — redeem it from the Codex app (Reset usage); clauth only reads the count"
-                        : "\(banked) free rate-limit resets banked on this account — redeem them from the Codex app (Reset usage); clauth only reads the count")
+                // A FILLED badge, the same weight as the danger pills above,
+                // not a bare glyph and a digit: the first cut was tinted teal
+                // text on a dark card and read as decoration you scan past
+                // (AX, 2026-09-09). The word is in it too — "1" beside a
+                // circular-arrow glyph is a puzzle, "1 reset" is a fact.
+                Label(
+                    banked == 1
+                        ? String(localized: "1 reset")
+                        : String(localized: "\(banked) resets"),
+                    systemImage: "arrow.counterclockwise"
+                )
+                .font(.system(size: 10)).fontWeight(.semibold).fixedSize()
+                .padding(.vertical, 1).padding(.horizontal, 5)
+                .background(Theme.codex.opacity(0.22), in: Capsule())
+                .foregroundStyle(Theme.codex)
+                .help(banked == 1
+                    ? "1 free rate-limit reset banked on this account — redeem it from the Codex app (Reset usage); clauth only reads the count"
+                    : "\(banked) free rate-limit resets banked on this account — redeem them from the Codex app (Reset usage); clauth only reads the count")
             }
             // "watching" (not a bare bolt): auto-switch is watching this account and
             // will rotate away from it at its threshold (sapphire = the armed hue, §5).

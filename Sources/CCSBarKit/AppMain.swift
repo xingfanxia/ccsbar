@@ -76,21 +76,30 @@ private struct MenuBarLabel: View {
             now: Date()
         )
         let fleet = FleetUsage.compute(model.status)
+        // FLEET-1: on the ordinary rungs the label is about the POOL, not the
+        // account you happen to be on — two bars (Claude over Codex) and their
+        // two figures, replacing the gauge glyph and the active account's name.
+        // The name is one click away in the panel; how much of everything is
+        // left is the thing a glance has to answer, and the old label could not
+        // (it showed one fixed claude account, which is exactly the complaint).
+        // Every exceptional rung keeps its glyph and its own text: there the
+        // glyph IS the state — a warning triangle for a dead daemon, an
+        // ellipsis mid-switch, `powersleep` for all-off — and a pool figure
+        // would bury the one thing to act on.
+        let bars = spec.showsFleetBars ? FleetBarsImage.make(fleet) : nil
         HStack(spacing: 3) {
-            // FLEET-1: on the ordinary rungs the fleet bars REPLACE the gauge
-            // glyph rather than joining it. The glyph said "this is a usage
-            // reading" — which the bars say better, and by showing the whole
-            // pool instead of one account — and the menu bar has no room for
-            // both. Every exceptional rung keeps its glyph (see `Spec`).
-            if spec.showsFleetBars && !fleet.isEmpty {
-                FleetBars(fleet: fleet)
+            if let bars {
+                Image(nsImage: bars)
             } else {
                 Image(systemName: spec.symbol)
             }
             if spec.nearThresholdDot {
                 Image(systemName: "circlebadge.fill").font(.system(size: 5))
             }
-            if !spec.text.isEmpty {
+            if bars != nil {
+                Text(FleetBarsImage.numbers(fleet))
+                    .font(.system(size: 13)).monospacedDigit().lineLimit(1)
+            } else if !spec.text.isEmpty {
                 Text(spec.text).font(.system(size: 13)).monospacedDigit().lineLimit(1)
             }
             if let available = spec.availabilityDot {
@@ -100,5 +109,6 @@ private struct MenuBarLabel: View {
                 Image(systemName: trailing)
             }
         }
+        .help(FleetUsage.sentence(fleet))
     }
 }

@@ -75,7 +75,9 @@ final class FleetUsageTests: XCTestCase {
             profileJSON("b", fiveH: 20, sevenD: 60),
         ]))
         XCTAssertEqual(try XCTUnwrap(fleet.claude), 70, accuracy: 0.001)
+        XCTAssertEqual(fleet.claudeCount, 2, "the tooltip has to be able to say how many")
         XCTAssertNil(fleet.codex, "no codex account — an absent bar, never 0%")
+        XCTAssertEqual(fleet.codexCount, 0)
     }
 
     func testHarnessesAreMeasuredSeparately() throws {
@@ -143,22 +145,51 @@ final class FleetUsageTests: XCTestCase {
 
     // ── the sentence the tooltip and VoiceOver share ─────────────────────────
 
-    func testTooltipNamesBothPools() {
-        let text = FleetBars.tooltip(FleetUsage(claude: 43.4, codex: 61.5))
-        XCTAssertTrue(text.hasPrefix("Claude 43% · Codex 62%"), text)
-        XCTAssertEqual(text, FleetBars.voiceOver(FleetUsage(claude: 43.4, codex: 61.5)),
-                       "the tooltip and VoiceOver read one sentence, so they cannot drift")
+    func testSentenceNamesBothPoolsWithTheirCounts() {
+        let text = FleetUsage.sentence(
+            FleetUsage(claude: 43.4, claudeCount: 3, codex: 61.5, codexCount: 1)
+        )
+        XCTAssertTrue(
+            text.hasPrefix("Claude 43% of 3 accounts · Codex 62% of 1 account"),
+            text
+        )
     }
 
-    func testTooltipOmitsAnAbsentPool() {
-        let text = FleetBars.tooltip(FleetUsage(claude: 10, codex: nil))
-        XCTAssertTrue(text.hasPrefix("Claude 10% of"), text)
+    func testSentenceOmitsAnAbsentPool() {
+        let text = FleetUsage.sentence(FleetUsage(claude: 10, claudeCount: 1, codex: nil))
+        XCTAssertTrue(text.hasPrefix("Claude 10% of 1 account"), text)
         XCTAssertFalse(text.contains("Codex"), text)
     }
 
-    func testTooltipSaysSoWhenThereIsNothingToMeasure() {
-        XCTAssertEqual(FleetBars.tooltip(FleetUsage(claude: nil, codex: nil)),
+    func testSentenceSaysSoWhenThereIsNothingToMeasure() {
+        XCTAssertEqual(FleetUsage.sentence(FleetUsage(claude: nil, codex: nil)),
                        "No account pool to measure yet")
+    }
+
+    // ── what the menu bar actually renders ──────────────────────────────────
+
+    /// The bars are a DRAWN template image, not SwiftUI shapes: a first cut
+    /// used `Capsule().fill(…)` and rendered as nothing in the menu bar while
+    /// every test passed, because `MenuBarExtra` flattens its label to an
+    /// image and only Text and Image survive. This pins the drawing.
+    func testBarsAreADrawnTemplateImageSizedToThePoolsPresent() throws {
+        let both = try XCTUnwrap(FleetBarsImage.make(FleetUsage(claude: 50, codex: 20)))
+        XCTAssertTrue(both.isTemplate, "a non-template image ignores the menu bar's appearance")
+        XCTAssertEqual(both.size.width, FleetBarsImage.width)
+        XCTAssertEqual(both.size.height, FleetBarsImage.barHeight * 2 + FleetBarsImage.gap)
+
+        // One pool present → ONE bar, not an empty second track: a full-width
+        // empty track reads as "nothing used", the opposite of "nothing known".
+        let one = try XCTUnwrap(FleetBarsImage.make(FleetUsage(claude: 50, codex: nil)))
+        XCTAssertEqual(one.size.height, FleetBarsImage.barHeight)
+
+        XCTAssertNil(FleetBarsImage.make(FleetUsage(claude: nil, codex: nil)))
+    }
+
+    func testNumbersFollowTheBarOrderAndRound() {
+        XCTAssertEqual(FleetBarsImage.numbers(FleetUsage(claude: 74.6, codex: 94.5)), "75·95")
+        XCTAssertEqual(FleetBarsImage.numbers(FleetUsage(claude: 10, codex: nil)), "10")
+        XCTAssertEqual(FleetBarsImage.numbers(FleetUsage(claude: nil, codex: nil)), "")
     }
 
     // ── the ladder only swaps the glyph on the ordinary rungs ────────────────
