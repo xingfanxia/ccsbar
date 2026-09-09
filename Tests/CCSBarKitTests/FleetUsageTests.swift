@@ -145,6 +145,21 @@ final class FleetUsageTests: XCTestCase {
 
     // ── the sentence the tooltip and VoiceOver share ─────────────────────────
 
+    func testSentenceNamesWhatWasLeftOut() throws {
+        // Seven accounts, three usable: the operator must not be left to wonder
+        // why a fleet of one is being reported.
+        let fleet = FleetUsage.compute(try status([
+            profileJSON("ok", fiveH: 77),
+            profileJSON("dead", fiveH: 0, authStatus: "broken"),
+            profileJSON("lapsed", fiveH: 0, tier: "canceled"),
+        ]))
+        XCTAssertEqual(fleet.excluded, 2)
+        XCTAssertTrue(
+            FleetUsage.sentence(fleet).contains("2 more left out"),
+            FleetUsage.sentence(fleet)
+        )
+    }
+
     func testSentenceNamesBothPoolsWithTheirCounts() {
         let text = FleetUsage.sentence(
             FleetUsage(claude: 43.4, claudeCount: 3, codex: 61.5, codexCount: 1)

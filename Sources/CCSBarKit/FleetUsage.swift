@@ -39,12 +39,24 @@ struct FleetUsage: Equatable, Sendable {
     /// Mean spent-ness of the Codex pool, 0…100, and how many accounts.
     let codex: Double?
     let codexCount: Int
+    /// Accounts with a usage window that were LEFT OUT — an expired login or a
+    /// lapsed plan. Named in the tooltip because the figure is "of everything
+    /// you can actually use", and an operator who owns seven accounts and sees
+    /// a pool of one deserves to be told why rather than left to wonder.
+    let excluded: Int
 
-    init(claude: Double?, claudeCount: Int = 0, codex: Double?, codexCount: Int = 0) {
+    init(
+        claude: Double?,
+        claudeCount: Int = 0,
+        codex: Double?,
+        codexCount: Int = 0,
+        excluded: Int = 0
+    ) {
         self.claude = claude
         self.claudeCount = claudeCount
         self.codex = codex
         self.codexCount = codexCount
+        self.excluded = excluded
     }
 
     /// Whether there is anything at all to draw.
@@ -54,7 +66,17 @@ struct FleetUsage: Equatable, Sendable {
         guard let status else { return FleetUsage(claude: nil, codex: nil) }
         let cc = pool(status.profiles.filter { !$0.isCodex })
         let cx = pool(status.profiles.filter(\.isCodex))
-        return FleetUsage(claude: cc.0, claudeCount: cc.1, codex: cx.0, codexCount: cx.1)
+        // Left out = has a window to report, but its login or plan says the
+        // quota cannot be spent. An account with no window at all (a
+        // third-party balance account) is not in this population.
+        let excluded = status.profiles.filter {
+            ($0.authBroken || $0.planInactive) && ($0.fiveHour != nil || $0.sevenDay != nil)
+        }.count
+        return FleetUsage(
+            claude: cc.0, claudeCount: cc.1,
+            codex: cx.0, codexCount: cx.1,
+            excluded: excluded
+        )
     }
 
     /// The pool's mean spent-ness and its account count; `nil` mean when no
@@ -87,9 +109,11 @@ struct FleetUsage: Equatable, Sendable {
             return "\(label) \(Int(pct.rounded()))% of \(n) account\(n == 1 ? "" : "s")"
         }
         guard !parts.isEmpty else { return "No account pool to measure yet" }
+        let left = fleet.excluded == 0
+            ? ""
+            : "; \(fleet.excluded) more left out, their login or plan says the quota can't be spent"
         return parts.joined(separator: " · ")
-            + " used (the worse of each account's 5h and weekly window, averaged; "
-            + "expired logins and lapsed plans are left out)"
+            + " used (the worse of each account's 5h and weekly window, averaged\(left))"
     }
 }
 
