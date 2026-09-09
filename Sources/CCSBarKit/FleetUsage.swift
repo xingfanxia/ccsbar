@@ -119,6 +119,147 @@ struct FleetUsage: Equatable, Sendable {
     }
 }
 
+/// FLEET-1: the ENTIRE menu-bar label, drawn as one template image.
+///
+/// **Why one image and not a stack of views.** `MenuBarExtra` does not render
+/// an arbitrary view tree into the status item — it reduces it, and what
+/// survives is not predictable from the SwiftUI code. Two earlier attempts died
+/// there: `Capsule().fill(…)` bars rendered as nothing at all, and an `HStack`
+/// of two `Image` + `Text` groups rendered ONE glyph (AX: "我同时只能看到一个
+/// icon啊"). Both builds carried the right code and passed their tests. The only
+/// construction that reliably reaches the menu bar is a single `Image`, so the
+/// label is composited here — glyphs, bars, numbers and the trailing mark — and
+/// the SwiftUI side is one `Image(nsImage:)`.
+///
+/// The composite is a TEMPLATE: the system tints it for light and dark menu
+/// bars and for the highlighted state, which is why everything is drawn in
+/// black and the tracks carry their contrast in ALPHA rather than colour.
+@MainActor
+enum FleetLabelImage {
+    private static let glyph: CGFloat = 11
+    private static let glyphGap: CGFloat = 3
+    private static let groupGap: CGFloat = 9
+    private static let barGap: CGFloat = 3
+    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+
+    /// One drawn figure: which harness it belongs to, the number it prints and
+    /// the value its bar fills to. Pure and `nonisolated`, because the two ways
+    /// this label has actually gone wrong in the menu bar are both decided here
+    /// rather than in the drawing — a harness silently missing from the list,
+    /// and a bar filling on the opposite axis from the number beside it — and
+    /// neither is assertable from a rendered bitmap without pixel archaeology.
+    struct Figure: Equatable {
+        let harness: Harness
+        let shown: Int
+        let fill: Double
+    }
+
+    /// Every figure the label will draw, in reading order. A harness with no
+    /// countable account is absent, never a zero.
+    nonisolated static func figures(_ fleet: FleetUsage, remaining: Bool) -> [Figure] {
+        [
+            fleet.claude.map { (Harness.claude, $0) },
+            fleet.codex.map { (Harness.codex, $0) },
+        ].compactMap { $0 }.map { harness, pct in
+            Figure(
+                harness: harness,
+                shown: FleetDisplay.shown(pct, remaining: remaining),
+                fill: FleetDisplay.value(pct, remaining: remaining)
+            )
+        }
+    }
+
+    /// The label for a live pool reading, or `nil` when there is nothing to
+    /// draw (the caller then falls back to the ladder's own glyph and text).
+    /// `trailing` is the ladder's own trailing SF Symbol (the disarmed bolt, the
+    /// pending-switch mark) — it has to be composited in here too, because a
+    /// sibling `Image` beside this one is exactly the arrangement that got
+    /// dropped.
+    static func make(
+        _ fleet: FleetUsage,
+        remaining: Bool,
+        showsBars: Bool,
+        trailing: String?
+    ) -> NSImage? {
+        let groups = figures(fleet, remaining: remaining)
+        guard !groups.isEmpty else { return nil }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.black,
+        ]
+        let texts = groups.map {
+            NSAttributedString(string: "\($0.shown)", attributes: attributes)
+        }
+        let trailingMark = trailing.flatMap {
+            NSImage(systemSymbolName: $0, accessibilityDescription: nil)
+        }
+
+        var width: CGFloat = 0
+        for (i, text) in texts.enumerated() {
+            if i > 0 { width += groupGap }
+            width += glyph + glyphGap
+            if showsBars { width += FleetBarsImage.width + barGap }
+            width += ceil(text.size().width)
+        }
+        if trailingMark != nil { width += groupGap + glyph }
+        let height = max(glyph, ceil(font.ascender - font.descender))
+
+        let image = NSImage(size: NSSize(width: ceil(width), height: height))
+        image.lockFocus()
+        var x: CGFloat = 0
+        for (i, group) in groups.enumerated() {
+            if i > 0 { x += groupGap }
+            if let mark = ProviderGlyph.image(for: group.harness) {
+                mark.draw(
+                    in: NSRect(x: x, y: (height - glyph) / 2, width: glyph, height: glyph),
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1
+                )
+            } else {
+                // A missing brand asset must never drop a harness from the
+                // label; the letter keeps both figures distinguishable.
+                let letter = NSAttributedString(
+                    string: group.harness == .codex ? "X" : "C",
+                    attributes: attributes
+                )
+                letter.draw(at: NSPoint(x: x, y: (height - letter.size().height) / 2))
+            }
+            x += glyph + glyphGap
+            if showsBars {
+                FleetBarsImage.one(group.fill).draw(
+                    in: NSRect(
+                        x: x,
+                        y: (height - FleetBarsImage.barHeight) / 2,
+                        width: FleetBarsImage.width,
+                        height: FleetBarsImage.barHeight
+                    ),
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1
+                )
+                x += FleetBarsImage.width + barGap
+            }
+            let text = texts[i]
+            text.draw(at: NSPoint(x: x, y: (height - text.size().height) / 2))
+            x += ceil(text.size().width)
+        }
+        if let mark = trailingMark {
+            x += groupGap
+            mark.draw(
+                in: NSRect(x: x, y: (height - glyph) / 2, width: glyph, height: glyph),
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1
+            )
+        }
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
+    }
+}
+
 /// FLEET-1: the two knobs the menu-bar label reads, and the one rule that turns
 /// a pool figure into the number shown.
 ///
@@ -138,17 +279,26 @@ enum FleetDisplay {
     /// reserve" got read as "8% left" the last time it was tried.
     static let remainingKey = "fleetShowsRemaining"
 
+    /// The figure on the axis the label is currently reading, unrounded.
+    /// Everything that depicts the figure — the printed number AND the bar
+    /// beside it — must go through here, or the two halves of one figure point
+    /// opposite ways: a bar filled 94% by spend sitting next to the number "6
+    /// left" (seen in the menu bar 2026-09-09, before this existed).
+    nonisolated static func value(_ pct: Double, remaining: Bool) -> Double {
+        let clamped = min(max(pct, 0), 100)
+        return remaining ? 100 - clamped : clamped
+    }
+
     /// The integer the label prints for a pool figure. `remaining` flips the
     /// axis; the rounding happens AFTER the flip so 99.6% used reads as 0 left,
     /// not 1 — a rounded-up remainder promises headroom that is already gone.
     nonisolated static func shown(_ pct: Double, remaining: Bool) -> Int {
-        let clamped = min(max(pct, 0), 100)
-        return Int((remaining ? 100 - clamped : clamped).rounded())
+        Int(value(pct, remaining: remaining).rounded())
     }
 }
 
-/// FLEET-1: the fleet figure drawn as a template NSImage — two stacked bars,
-/// Claude over Codex.
+/// FLEET-1: one pool's bar, drawn as a template NSImage. `FleetLabelImage`
+/// composites one of these into each harness group when the bars are on.
 ///
 /// **Why a drawn image and not SwiftUI shapes.** `MenuBarExtra`'s label is
 /// rendered by AppKit into a status-item image, and only `Text` and `Image`
@@ -167,39 +317,6 @@ enum FleetBarsImage {
     static let width: CGFloat = 20
     static let barHeight: CGFloat = 4
     static let gap: CGFloat = 2
-
-    /// A template image of the pool bars, or `nil` when there is nothing to
-    /// draw. A harness with no countable account contributes NO bar (not an
-    /// empty one): a full-width empty track reads as "nothing used", which is
-    /// the opposite of "nothing known".
-    static func make(_ fleet: FleetUsage) -> NSImage? {
-        let values = [fleet.claude, fleet.codex].compactMap { $0 }
-        guard !values.isEmpty else { return nil }
-        let height = CGFloat(values.count) * barHeight + CGFloat(values.count - 1) * gap
-        let image = NSImage(size: NSSize(width: width, height: height))
-        image.lockFocus()
-        for (i, pct) in values.enumerated() {
-            // Top row first: AppKit's origin is bottom-left, so the first value
-            // has to be drawn at the highest y or Claude and Codex swap places.
-            let y = height - CGFloat(i + 1) * barHeight - CGFloat(i) * gap
-            let track = NSRect(x: 0, y: y, width: width, height: barHeight)
-            let radius = barHeight / 2
-            NSColor.black.withAlphaComponent(0.28).setFill()
-            NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
-            let fraction = min(max(pct / 100, 0), 1)
-            guard fraction > 0 else { continue }
-            // Never thinner than the cap diameter: below ~4% the exact fraction
-            // rounds to a sliver under a pixel, and a bar that renders empty at
-            // 2% used says the wrong thing.
-            let filled = max(fraction * width, barHeight)
-            let fill = NSRect(x: 0, y: y, width: filled, height: barHeight)
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: fill, xRadius: radius, yRadius: radius).fill()
-        }
-        image.unlockFocus()
-        image.isTemplate = true
-        return image
-    }
 
     /// ONE bar for one pool, sized for the menu bar's line. Used when the bars
     /// are switched on: each rides inside its harness's own group, after the

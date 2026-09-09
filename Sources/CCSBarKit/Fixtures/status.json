@@ -1,214 +1,254 @@
 {
-  "schema": 1,
-  "generated_at": "2026-07-04T05:00:00+00:00",
-  "active_profile": "account-1",
-  "wrap_off": false,
-  "refresh_interval_ms": 90000,
-  "fallback_chain": [
-    "account-1",
-    "account-2",
-    "account-3"
-  ],
-  "profiles": [
-    {
-      "name": "account-1",
-      "active": true,
-      "provider": "anthropic",
-      "base_url": null,
-      "tier": "Max 20x",
-      "has_live_session": false,
-      "fetch_status": "Fresh",
-      "fetched_at": "2026-07-04T04:59:00+00:00",
-      "next_refresh_at": null,
-      "auto_start": false,
-      "bell_threshold": null,
-      "fallback": {
-        "position": 1,
-        "threshold": 95,
-        "armed": true,
-        "last_resort": false
-      },
-      "windows": [
+    "schema": 1,
+    "generated_at": "2026-07-04T05:00:00+00:00",
+    "active_profile": "account-1",
+    "wrap_off": false,
+    "refresh_interval_ms": 90000,
+    "fallback_chain": [
+        "account-1",
+        "account-2",
+        "account-3"
+    ],
+    "profiles": [
         {
-          "label": "5h",
-          "utilization_pct": 42,
-          "resets_at": "2026-07-04T20:00:00.519183+00:00"
+            "name": "account-1",
+            "active": true,
+            "provider": "anthropic",
+            "base_url": null,
+            "tier": "Max 20x",
+            "has_live_session": false,
+            "fetch_status": "Fresh",
+            "fetched_at": "2026-07-04T04:59:00+00:00",
+            "next_refresh_at": null,
+            "auto_start": false,
+            "bell_threshold": null,
+            "fallback": {
+                "position": 1,
+                "threshold": 95,
+                "armed": true,
+                "last_resort": false,
+                "check_weekly": true,
+                "check_scoped": true,
+                "weekly_threshold": 90.0
+            },
+            "windows": [
+                {
+                    "label": "5h",
+                    "utilization_pct": 42,
+                    "resets_at": "2026-07-04T20:00:00.519183+00:00"
+                },
+                {
+                    "label": "7d",
+                    "utilization_pct": 78,
+                    "resets_at": "2026-07-10T00:00:00.519205+00:00"
+                },
+                {
+                    "label": "7d fable",
+                    "utilization_pct": 12,
+                    "resets_at": "2026-07-10T00:00:00.519205+00:00"
+                }
+            ],
+            "third_party": null,
+            "account_email": "alpha@example.com",
+            "auth_status": "ok",
+            "rolling_token": true,
+            "stale": false,
+            "auto_start_queue": {
+                "position": 1,
+                "next_open_at": "2026-09-09T14:00:00+00:00"
+            }
         },
         {
-          "label": "7d",
-          "utilization_pct": 78,
-          "resets_at": "2026-07-10T00:00:00.519205+00:00"
+            "name": "account-2",
+            "active": false,
+            "provider": "anthropic",
+            "base_url": null,
+            "tier": "Max 20x",
+            "has_live_session": false,
+            "fetch_status": "Fresh",
+            "fetched_at": null,
+            "next_refresh_at": null,
+            "auto_start": false,
+            "bell_threshold": null,
+            "fallback": {
+                "position": 2,
+                "threshold": 95,
+                "armed": false,
+                "last_resort": false,
+                "check_weekly": true,
+                "check_scoped": false,
+                "weekly_threshold": null
+            },
+            "windows": [
+                {
+                    "label": "5h",
+                    "utilization_pct": 8,
+                    "resets_at": "2026-07-04T18:00:00.100000+00:00"
+                },
+                {
+                    "label": "7d",
+                    "utilization_pct": 31,
+                    "resets_at": null
+                },
+                {
+                    "label": "7d fable",
+                    "utilization_pct": 0,
+                    "resets_at": null
+                }
+            ],
+            "third_party": null,
+            "account_email": "bravo@example.com",
+            "auth_status": "ok",
+            "rolling_token": false,
+            "stale": true,
+            "auto_start_queue": null
         },
         {
-          "label": "7d fable",
-          "utilization_pct": 12,
-          "resets_at": "2026-07-10T00:00:00.519205+00:00"
+            "name": "account-3",
+            "active": false,
+            "provider": "anthropic",
+            "base_url": null,
+            "tier": "Max 20x",
+            "has_live_session": false,
+            "fetch_status": "Fresh",
+            "fetched_at": null,
+            "next_refresh_at": null,
+            "auto_start": false,
+            "bell_threshold": null,
+            "fallback": {
+                "position": 3,
+                "threshold": 95,
+                "armed": false,
+                "last_resort": true,
+                "check_weekly": true,
+                "check_scoped": true,
+                "weekly_threshold": null
+            },
+            "windows": [
+                {
+                    "label": "5h",
+                    "utilization_pct": 18,
+                    "resets_at": "2026-07-04T19:00:00.100000+00:00"
+                },
+                {
+                    "label": "7d",
+                    "utilization_pct": 24,
+                    "resets_at": null
+                },
+                {
+                    "label": "7d fable",
+                    "utilization_pct": 0,
+                    "resets_at": null
+                }
+            ],
+            "third_party": null,
+            "auth_status": "broken",
+            "rolling_token": false,
+            "stale": false,
+            "auto_start_queue": null
+        },
+        {
+            "name": "codex-1",
+            "active": true,
+            "provider": "openai",
+            "harness": "codex",
+            "base_url": null,
+            "tier": "pro",
+            "has_live_session": false,
+            "fetch_status": "Fresh",
+            "fetched_at": "2026-07-04T04:59:00+00:00",
+            "next_refresh_at": null,
+            "auto_start": false,
+            "bell_threshold": null,
+            "codex_snapshot_at": "2026-07-03T12:00:00+00:00",
+            "codex_rate_limit_reached": null,
+            "fallback": {
+                "position": 1,
+                "threshold": 95,
+                "armed": true,
+                "last_resort": false,
+                "check_weekly": true,
+                "check_scoped": true,
+                "weekly_threshold": null
+            },
+            "windows": [
+                {
+                    "label": "7d",
+                    "utilization_pct": 40,
+                    "resets_at": "2026-07-10T00:00:00.000000+00:00"
+                }
+            ],
+            "third_party": null,
+            "account_email": "codex@example.com",
+            "auth_status": "ok",
+            "rolling_token": false,
+            "stale": false,
+            "auto_start_queue": null,
+            "codex_reset_credits": 2
+        },
+        {
+            "name": "codex-2",
+            "active": false,
+            "provider": "openai",
+            "harness": "codex",
+            "base_url": null,
+            "tier": "plus",
+            "has_live_session": false,
+            "fetch_status": "Fresh",
+            "fetched_at": "2026-07-04T04:58:00+00:00",
+            "next_refresh_at": null,
+            "auto_start": false,
+            "bell_threshold": null,
+            "codex_snapshot_at": "2026-06-28T09:00:00+00:00",
+            "codex_rate_limit_reached": null,
+            "fallback": {
+                "position": 2,
+                "threshold": 95,
+                "armed": false,
+                "last_resort": false,
+                "check_weekly": true,
+                "check_scoped": true,
+                "weekly_threshold": null
+            },
+            "windows": [
+                {
+                    "label": "5h",
+                    "utilization_pct": 12,
+                    "resets_at": "2026-07-04T19:30:00.000000+00:00"
+                },
+                {
+                    "label": "7d",
+                    "utilization_pct": 9,
+                    "resets_at": "2026-07-10T00:00:00.000000+00:00"
+                }
+            ],
+            "third_party": null,
+            "account_email": "codex-two@example.com",
+            "auth_status": "ok",
+            "rolling_token": false,
+            "stale": false,
+            "auto_start_queue": null,
+            "codex_reset_credits": 1
         }
-      ],
-      "third_party": null,
-      "account_email": "alpha@example.com"
+    ],
+    "clauth_version": "0.15.1",
+    "burn_aware": false,
+    "forecast": {
+        "action": "switch",
+        "to": "account-2"
     },
-    {
-      "name": "account-2",
-      "active": false,
-      "provider": "anthropic",
-      "base_url": null,
-      "tier": "Max 20x",
-      "has_live_session": false,
-      "fetch_status": "Fresh",
-      "fetched_at": null,
-      "next_refresh_at": null,
-      "auto_start": false,
-      "bell_threshold": null,
-      "fallback": {
-        "position": 2,
-        "threshold": 95,
-        "armed": false,
-        "last_resort": false
-      },
-      "windows": [
-        {
-          "label": "5h",
-          "utilization_pct": 8,
-          "resets_at": "2026-07-04T18:00:00.100000+00:00"
-        },
-        {
-          "label": "7d",
-          "utilization_pct": 31,
-          "resets_at": null
-        },
-        {
-          "label": "7d fable",
-          "utilization_pct": 0,
-          "resets_at": null
-        }
-      ],
-      "third_party": null,
-      "account_email": "bravo@example.com"
+    "pending_switch": null,
+    "last_switch": {
+        "from": "account-2",
+        "to": "account-1",
+        "at": "2026-07-04T04:58:30+00:00",
+        "trigger": "scheduler"
     },
-    {
-      "name": "account-3",
-      "active": false,
-      "provider": "anthropic",
-      "base_url": null,
-      "tier": "Max 20x",
-      "has_live_session": false,
-      "fetch_status": "Fresh",
-      "fetched_at": null,
-      "next_refresh_at": null,
-      "auto_start": false,
-      "bell_threshold": null,
-      "fallback": {
-        "position": 3,
-        "threshold": 95,
-        "armed": false,
-        "last_resort": true
-      },
-      "windows": [
-        {
-          "label": "5h",
-          "utilization_pct": 18,
-          "resets_at": "2026-07-04T19:00:00.100000+00:00"
-        },
-        {
-          "label": "7d",
-          "utilization_pct": 24,
-          "resets_at": null
-        },
-        {
-          "label": "7d fable",
-          "utilization_pct": 0,
-          "resets_at": null
-        }
-      ],
-      "third_party": null
-    },
-    {
-      "name": "codex-1",
-      "active": true,
-      "provider": "openai",
-      "harness": "codex",
-      "base_url": null,
-      "tier": "pro",
-      "has_live_session": false,
-      "fetch_status": "Fresh",
-      "fetched_at": "2026-07-04T04:59:00+00:00",
-      "next_refresh_at": null,
-      "auto_start": false,
-      "bell_threshold": null,
-      "codex_snapshot_at": "2026-07-03T12:00:00+00:00",
-      "codex_rate_limit_reached": null,
-      "fallback": {
-        "position": 1,
-        "threshold": 95,
-        "armed": true,
-        "last_resort": false
-      },
-      "windows": [
-        {
-          "label": "7d",
-          "utilization_pct": 40,
-          "resets_at": "2026-07-10T00:00:00.000000+00:00"
-        }
-      ],
-      "third_party": null,
-      "account_email": "codex@example.com"
-    },
-    {
-      "name": "codex-2",
-      "active": false,
-      "provider": "openai",
-      "harness": "codex",
-      "base_url": null,
-      "tier": "plus",
-      "has_live_session": false,
-      "fetch_status": "Fresh",
-      "fetched_at": "2026-07-04T04:58:00+00:00",
-      "next_refresh_at": null,
-      "auto_start": false,
-      "bell_threshold": null,
-      "codex_snapshot_at": "2026-06-28T09:00:00+00:00",
-      "codex_rate_limit_reached": null,
-      "fallback": {
-        "position": 2,
-        "threshold": 95,
-        "armed": false,
-        "last_resort": false
-      },
-      "windows": [
-        {
-          "label": "5h",
-          "utilization_pct": 12,
-          "resets_at": "2026-07-04T19:30:00.000000+00:00"
-        },
-        {
-          "label": "7d",
-          "utilization_pct": 9,
-          "resets_at": "2026-07-10T00:00:00.000000+00:00"
-        }
-      ],
-      "third_party": null,
-      "account_email": "codex-two@example.com"
-    }
-  ],
-  "clauth_version": "0.11.0",
-  "burn_aware": false,
-  "forecast": {
-    "action": "switch",
-    "to": "account-2"
-  },
-  "pending_switch": null,
-  "last_switch": {
-    "from": "account-2",
-    "to": "account-1",
-    "at": "2026-07-04T04:58:30+00:00",
-    "trigger": "scheduler"
-  },
-  "last_error": null,
-  "weekly_switch_threshold": 98.0,
-  "active_codex_profile": "codex-1",
-  "codex_fallback_chain": [
-    "codex-1",
-    "codex-2"
-  ]
+    "last_error": null,
+    "weekly_switch_threshold": 98.0,
+    "active_codex_profile": "codex-1",
+    "codex_fallback_chain": [
+        "codex-1",
+        "codex-2"
+    ]
 }

@@ -97,8 +97,10 @@ enum SessionToken {
     /// Day-granular — the horizon is ~a year, and the stamp itself is the
     /// documented lifetime, not a server figure.
     ///
-    /// CLA-ROLL (`fed`, from status.json `rolling_token` / legacy
-    /// `session_feed`): the daemon
+    /// CLA-ROLL (`fed`, from status.json `rolling_token` — CONTENT-classified:
+    /// true when the sidecar currently HOLDS a rolling bearer, false for a
+    /// static mint and false for a mis-fill, whatever the config flag says;
+    /// legacy `session_feed` is read only from a pre-0.15 daemon): the daemon
     /// re-stamps this sidecar from the usage chain on every rotation AND —
     /// since clauth EXP-2 (2026-07-23) — on a freshness timer that re-feeds
     /// two hours ahead of the stamp, so an hours-scale expiry is routine
@@ -113,11 +115,12 @@ enum SessionToken {
     static func statusLine(_ state: SessionTokenState, nowMs: Int64, fed: Bool = false) -> (text: String, tone: Tone)? {
         switch state {
         case .none:
-            if fed {
-                // Flag on, sidecar not yet armed — the next rotation (or a
-                // `clauth feed <p> on` re-run) feeds it.
-                return ("Session feed enabled · arming on next rotation", .warning)
-            }
+            // UNREACHABLE since clauth #59 merged (0.15.x): `rolling_token`
+            // publishes what the sidecar HOLDS, not the config flag, so a
+            // profile with no sidecar publishes false and never arrives here
+            // with `fed` true. The old "arming on next rotation" cue belonged
+            // to the flag reading and would now be a claim about a file that
+            // does not exist.
             return nil
         case .misfilled:
             return (

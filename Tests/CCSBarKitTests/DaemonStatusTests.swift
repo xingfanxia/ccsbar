@@ -22,6 +22,30 @@ final class DaemonStatusTests: XCTestCase {
         // anthropic accounts, account-3 marked last_resort so the flag badge shows,
         // plus two codex profiles (INT-2/TABS-1): the two-active-slots case AND a
         // 2-member codex chain so the codex rail renders with a rotation target.
+        // The fixture IS the contract, so the keys clauth 0.15.1 added are
+        // pinned here rather than only in synthetic samples: the fixture sat at
+        // 0.11.0 through four upstream releases and could not have caught a
+        // rename of any of them (found by auditing the deployed daemon,
+        // 2026-09-09). Pair with `StatusModel.expectedClauthVersion`, which the
+        // panel shows a skew line against.
+        let expected = MainActor.assumeIsolated { StatusModel.expectedClauthVersion }
+        XCTAssertEqual(status.clauthVersion, expected,
+                       "regenerate the fixture and bump the constant in ONE commit")
+        let byName = Dictionary(uniqueKeysWithValues: status.profiles.map { ($0.name, $0) })
+        XCTAssertEqual(byName["account-1"]?.rollingToken, true,
+                       "rolling_token is CONTENT truth — one profile holds a rolling bearer")
+        XCTAssertEqual(byName["account-2"]?.rollingToken, false)
+        XCTAssertEqual(byName["account-3"]?.authStatus, "broken", "the login-expired pill has a row to render on")
+        XCTAssertEqual(byName["account-1"]?.authStatus, "ok")
+        XCTAssertEqual(byName["codex-1"]?.codexResetCredits, 2)
+        XCTAssertEqual(byName["codex-2"]?.codexResetCredits, 1,
+                       "both codex rows carry a banked reset, so the multi-chip layout renders")
+        XCTAssertNil(byName["account-1"]?.codexResetCredits, "claude rows never carry it")
+        XCTAssertEqual(byName["account-1"]?.fallback?.checkWeekly, true)
+        XCTAssertEqual(byName["account-2"]?.fallback?.checkScoped, false)
+        XCTAssertEqual(byName["account-1"]?.fallback?.weeklyThreshold, 90)
+        XCTAssertNil(byName["account-2"]?.fallback?.weeklyThreshold, "null = follow the chain-wide line")
+
         XCTAssertEqual(status.activeProfile, "account-1")
         XCTAssertEqual(status.fallbackChain, ["account-1", "account-2", "account-3"])
         XCTAssertEqual(status.profiles.count, 5)

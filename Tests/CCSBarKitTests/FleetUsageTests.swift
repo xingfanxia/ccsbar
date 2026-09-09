@@ -183,24 +183,6 @@ final class FleetUsageTests: XCTestCase {
 
     // ── what the menu bar actually renders ──────────────────────────────────
 
-    /// The bars are a DRAWN template image, not SwiftUI shapes: a first cut
-    /// used `Capsule().fill(…)` and rendered as nothing in the menu bar while
-    /// every test passed, because `MenuBarExtra` flattens its label to an
-    /// image and only Text and Image survive. This pins the drawing.
-    func testBarsAreADrawnTemplateImageSizedToThePoolsPresent() throws {
-        let both = try XCTUnwrap(FleetBarsImage.make(FleetUsage(claude: 50, codex: 20)))
-        XCTAssertTrue(both.isTemplate, "a non-template image ignores the menu bar's appearance")
-        XCTAssertEqual(both.size.width, FleetBarsImage.width)
-        XCTAssertEqual(both.size.height, FleetBarsImage.barHeight * 2 + FleetBarsImage.gap)
-
-        // One pool present → ONE bar, not an empty second track: a full-width
-        // empty track reads as "nothing used", the opposite of "nothing known".
-        let one = try XCTUnwrap(FleetBarsImage.make(FleetUsage(claude: 50, codex: nil)))
-        XCTAssertEqual(one.size.height, FleetBarsImage.barHeight)
-
-        XCTAssertNil(FleetBarsImage.make(FleetUsage(claude: nil, codex: nil)))
-    }
-
     func testShownFlipsTheAxisAndRoundsAfterTheFlip() {
         XCTAssertEqual(FleetDisplay.shown(74.6, remaining: false), 75)
         XCTAssertEqual(FleetDisplay.shown(74.6, remaining: true), 25)

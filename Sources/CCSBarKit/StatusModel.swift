@@ -127,7 +127,12 @@ final class StatusModel: ObservableObject {
     /// when ccsbar is validated against a new clauth release. Bumped WITH the
     /// fixture's `clauth_version` (they must move together or every snapshot grows
     /// a spurious skew badge).
-    static let expectedClauthVersion = "0.11.0"
+    /// The clauth this build was READ against. The panel shows a skew line when
+    /// the daemon reports anything else — which it did on every open from the
+    /// 0.15.1 deploy until this was bumped, because the constant had sat at
+    /// 0.11.0 through four upstream releases. Bump it in the same commit that
+    /// regenerates the contract fixture, and nowhere else.
+    static let expectedClauthVersion = "0.15.1"
 
     private var timer: Timer?
     private var lastMtime: Date?

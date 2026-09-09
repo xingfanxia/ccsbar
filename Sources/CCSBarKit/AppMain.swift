@@ -83,25 +83,31 @@ private struct MenuBarLabel: View {
         )
         let fleet = FleetUsage.compute(model.status)
         // FLEET-1: on the ordinary rungs the label is about the POOL, not the
-        // account you happen to be on — one group per harness, each led by that
-        // harness's own brand glyph so the two figures can never be read the
-        // wrong way round (AX, 2026-09-09: "有点难区分"). The active account's
-        // name lives in the panel; how much of everything is left is what a
-        // glance has to answer, and the old label could not.
+        // account you happen to be on — one figure per harness, each led by
+        // that harness's own brand glyph so the two can never be read the wrong
+        // way round (AX, 2026-09-09: "有点难区分"). The active account's name
+        // lives in the panel; how much of everything is left is what a glance
+        // has to answer, and the old label could not.
+        //
+        // It is ONE composited image rather than a row of sibling views — see
+        // `FleetLabelImage` for why a view tree does not survive the trip into
+        // the status item.
         //
         // Every exceptional rung keeps its glyph and its own text: there the
         // glyph IS the state — a warning triangle for a dead daemon, an
         // ellipsis mid-switch, `powersleep` for all-off — and a pool figure
         // would bury the one thing to act on.
-        let showsFleet = spec.showsFleetBars && !fleet.isEmpty
-        HStack(spacing: 6) {
-            if showsFleet {
-                if let claude = fleet.claude {
-                    harnessFigure(.claude, pct: claude)
-                }
-                if let codex = fleet.codex {
-                    harnessFigure(.codex, pct: codex)
-                }
+        let poolLabel = spec.showsFleetBars
+            ? FleetLabelImage.make(
+                fleet,
+                remaining: showsRemaining,
+                showsBars: showsBars,
+                trailing: spec.trailingSymbol
+            )
+            : nil
+        Group {
+            if let poolLabel {
+                Image(nsImage: poolLabel)
             } else {
                 HStack(spacing: 3) {
                     Image(systemName: spec.symbol)
@@ -114,38 +120,12 @@ private struct MenuBarLabel: View {
                     if let available = spec.availabilityDot {
                         Image(systemName: available ? "circle.fill" : "circle").font(.system(size: 6))
                     }
+                    if let trailing = spec.trailingSymbol {
+                        Image(systemName: trailing)
+                    }
                 }
-            }
-            if let trailing = spec.trailingSymbol {
-                Image(systemName: trailing)
             }
         }
         .help(FleetUsage.sentence(fleet, remaining: showsRemaining))
-    }
-
-    /// One harness's figure: its brand glyph, the optional bar, the number.
-    /// The glyph is the SAME template mark the panel's tabs use, so the menu
-    /// bar and the page you land on after clicking it agree about which is
-    /// which.
-    @ViewBuilder
-    private func harnessFigure(_ harness: Harness, pct: Double) -> some View {
-        HStack(spacing: 2) {
-            if let glyph = ProviderGlyph.image(for: harness) {
-                Image(nsImage: glyph)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 11, height: 11)
-            } else {
-                // A missing brand asset must never blank the label; fall back to
-                // a letter rather than dropping the harness entirely.
-                Text(harness == .codex ? "X" : "C").font(.system(size: 10, weight: .semibold))
-            }
-            if showsBars {
-                Image(nsImage: FleetBarsImage.one(pct))
-            }
-            Text("\(FleetDisplay.shown(pct, remaining: showsRemaining))")
-                .font(.system(size: 13)).monospacedDigit().lineLimit(1)
-        }
     }
 }

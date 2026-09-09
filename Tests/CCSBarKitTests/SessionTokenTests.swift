@@ -115,9 +115,11 @@ import Testing
         #expect(stalled?.text.contains("Feed stalled") == true)
         #expect(stalled?.tone == .danger)
 
-        let arming = SessionToken.statusLine(.none, nowMs: now, fed: true)
-        #expect(arming?.text.contains("arming on next rotation") == true)
-        #expect(arming?.tone == .warning)
+        // No sidecar + rolling=true is UNREACHABLE since clauth #59 merged:
+        // `rolling_token` reports what the sidecar holds, so a profile with no
+        // sidecar publishes false. The old "arming on next rotation" line was a
+        // claim about a file that does not exist, and it is gone.
+        #expect(SessionToken.statusLine(.none, nowMs: now, fed: true) == nil)
 
         let misfilled = SessionToken.statusLine(.misfilled, nowMs: now, fed: true)
         #expect(misfilled?.tone == .danger)
