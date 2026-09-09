@@ -353,6 +353,13 @@ enum FleetDisplay {
     /// start work, and the active account's own numbers are one click away in
     /// the panel.
     static let activeOnlyKey = "fleetShowsActiveOnly"
+    /// Draw the ladder's disarmed mark (`bolt.slash`) after the figures. ON by
+    /// default, because a chain that will not rotate is a real degraded state
+    /// and the menu bar is where it is cheap to notice. It is a switch because
+    /// the state can be deliberate: setting codex auto-switch up is not
+    /// straightforward (AX, 2026-09-09), and a warning you have decided to
+    /// live with stops being a warning and starts being furniture.
+    static let disarmedKey = "fleetShowsDisarmed"
 
     /// The figure on the axis the label is currently reading, unrounded.
     /// Everything that depicts the figure — the printed number AND the bar

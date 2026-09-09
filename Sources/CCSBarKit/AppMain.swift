@@ -74,6 +74,7 @@ private struct MenuBarLabel: View {
     @AppStorage(FleetDisplay.barsKey) private var showsBars = false
     @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
     @AppStorage(FleetDisplay.activeOnlyKey) private var showsActiveOnly = false
+    @AppStorage(FleetDisplay.disarmedKey) private var showsDisarmed = true
 
     var body: some View {
         let spec = MenuBarLabelLadder.spec(
@@ -98,12 +99,16 @@ private struct MenuBarLabel: View {
         // glyph IS the state — a warning triangle for a dead daemon, an
         // ellipsis mid-switch, `powersleep` for all-off — and a pool figure
         // would bury the one thing to act on.
+        // The disarmed mark is gated in ONE place, so hiding it cannot leave a
+        // copy behind on the exceptional rungs, which draw their own trailing
+        // symbol from the same field.
+        let trailing = showsDisarmed ? spec.trailingSymbol : nil
         let poolLabel = spec.showsFleetBars
             ? FleetLabelImage.make(
                 fleet,
                 remaining: showsRemaining,
                 showsBars: showsBars,
-                trailing: spec.trailingSymbol
+                trailing: trailing
             )
             : nil
         Group {
@@ -121,7 +126,7 @@ private struct MenuBarLabel: View {
                     if let available = spec.availabilityDot {
                         Image(systemName: available ? "circle.fill" : "circle").font(.system(size: 6))
                     }
-                    if let trailing = spec.trailingSymbol {
+                    if let trailing {
                         Image(systemName: trailing)
                     }
                 }

@@ -113,9 +113,12 @@ accounts of their **weekly** window (the 5h one stands in only where there is no
 weekly). The week is what a decision to start something long turns on, and it is
 the only window codex publishes, so both harnesses read on one axis. Scoped
 per-model windows, broken logins and lapsed plans are left out, and a harness with
-nothing countable draws no figure rather than 0%. Three switches in the panel, all
-off by default: read each harness's **active account** instead of its pool, count
-what is **LEFT** instead of what is spent, and draw a **bar** beside each number.
+nothing countable draws no figure rather than 0%. Four switches in the panel: read
+each harness's **active account** instead of its pool, count what is **LEFT**
+instead of what is spent, draw a **bar** beside each number (those three off by
+default), and show the **disarmed mark** — a `bolt.slash` after the figures when
+no chain will rotate — which is on by default and can be switched off when that
+state is one you have decided to live with.
 Exceptional states replace the pool entirely with the state's own glyph and text:
 a switch-in-flight ellipsis, a rotation glyph, a `bolt.slash` when auto-switch is
 disarmed, or a warning triangle + frozen age when the daemon dies (the % is
@@ -207,7 +210,8 @@ Implemented (the CBAR-4 "Preflight" redesign):
   light/dark aware — replaces the earlier `NSMenu` + block-character (█░) bars.
 - **Menu-bar fleet label** — a brand glyph + weekly pool figure per harness,
   composited into one template image (`MenuBarExtra` drops sibling views). Optional
-  bars, a used/remaining flip, and a pool/active-account flip. Exceptional rungs keep their own glyph and text, all state in
+  bars, a used/remaining flip, a pool/active-account flip, and a switch for the
+  disarmed mark. Exceptional rungs keep their own glyph and text, all state in
   the SF Symbol shape (never color, which the menu bar flattens): near-threshold
   dot, switch-in-flight ellipsis, rotation glyph, `bolt.slash` when disarmed, and a
   warning triangle + frozen age (% withheld) when the daemon dies.

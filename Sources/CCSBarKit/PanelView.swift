@@ -13,6 +13,7 @@ struct PanelView: View {
     @AppStorage(FleetDisplay.barsKey) private var fleetShowsBars = false
     @AppStorage(FleetDisplay.remainingKey) private var fleetShowsRemaining = false
     @AppStorage(FleetDisplay.activeOnlyKey) private var fleetShowsActiveOnly = false
+    @AppStorage(FleetDisplay.disarmedKey) private var fleetShowsDisarmed = true
     @ObservedObject var model: StatusModel
 
     var body: some View {
@@ -140,6 +141,14 @@ struct PanelView: View {
             // FLEET-1 menu-bar knobs. They live beside "Start at login" because
             // that is where the app's own (not an account's) preferences are,
             // and both change what the MENU BAR shows rather than this panel.
+            PanelSwitchToggle(isOn: $fleetShowsDisarmed) {
+                HStack(spacing: 8) {
+                    Image(systemName: "bolt.slash").frame(width: 16)
+                    Text("Menu bar shows disarmed mark"); Spacer()
+                }
+            }
+            .padding(.vertical, 5).padding(.horizontal, 8)
+            .help("Mark the menu bar when no chain will rotate. Off hides it — the chain stays disarmed either way.")
             PanelSwitchToggle(isOn: $fleetShowsActiveOnly) {
                 HStack(spacing: 8) {
                     Image(systemName: "person.crop.circle").frame(width: 16)
