@@ -8,6 +8,10 @@ import SwiftUI
 /// account LIST (inspect-first) → detail card → chain rail → config disclosure.
 /// Data comes from `status.json` via `StatusModel`; edits go to the socket.
 struct PanelView: View {
+    /// The menu-bar figure knobs (FLEET-1). `@AppStorage` in a View, never in
+    /// an `ObservableObject` — see `FleetDisplay`.
+    @AppStorage(FleetDisplay.barsKey) private var fleetShowsBars = false
+    @AppStorage(FleetDisplay.remainingKey) private var fleetShowsRemaining = false
     @ObservedObject var model: StatusModel
 
     var body: some View {
@@ -132,6 +136,25 @@ struct PanelView: View {
             ActionRow(icon: "arrow.clockwise", title: "Refresh usage") { model.refresh() }
                 .disabled(dead)
                 .keyboardShortcut("r", modifiers: [])
+            // FLEET-1 menu-bar knobs. They live beside "Start at login" because
+            // that is where the app's own (not an account's) preferences are,
+            // and both change what the MENU BAR shows rather than this panel.
+            PanelSwitchToggle(isOn: $fleetShowsRemaining) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.left.arrow.right.circle").frame(width: 16)
+                    Text("Menu bar shows remaining"); Spacer()
+                }
+            }
+            .padding(.vertical, 5).padding(.horizontal, 8)
+            .help("Show what is LEFT of each harness's pool instead of what is spent.")
+            PanelSwitchToggle(isOn: $fleetShowsBars) {
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.bar").frame(width: 16)
+                    Text("Menu bar shows bars"); Spacer()
+                }
+            }
+            .padding(.vertical, 5).padding(.horizontal, 8)
+            .help("Draw a small usage bar beside each harness figure in the menu bar.")
             if LoginItem.isAvailable {
                 PanelSwitchToggle(isOn: Binding(get: { LoginItem.isEnabled }, set: { LoginItem.setEnabled($0) })) {
                     HStack(spacing: 8) {

@@ -100,20 +100,50 @@ struct FleetUsage: Equatable, Sendable {
     /// tooltip and VoiceOver share, so they cannot drift apart. The counts are
     /// in it because the bars cannot show them and a pool of one is a different
     /// fact from a pool of five.
-    nonisolated static func sentence(_ fleet: FleetUsage) -> String {
+    nonisolated static func sentence(_ fleet: FleetUsage, remaining: Bool = false) -> String {
         let parts = [
             ("Claude", fleet.claude, fleet.claudeCount),
             ("Codex", fleet.codex, fleet.codexCount),
         ].compactMap { label, pct, n -> String? in
             guard let pct else { return nil }
-            return "\(label) \(Int(pct.rounded()))% of \(n) account\(n == 1 ? "" : "s")"
+            let shown = FleetDisplay.shown(pct, remaining: remaining)
+            return "\(label) \(shown)% of \(n) account\(n == 1 ? "" : "s")"
         }
         guard !parts.isEmpty else { return "No account pool to measure yet" }
         let left = fleet.excluded == 0
             ? ""
             : "; \(fleet.excluded) more left out, their login or plan says the quota can't be spent"
         return parts.joined(separator: " · ")
-            + " used (the worse of each account's 5h and weekly window, averaged\(left))"
+            + (remaining ? " LEFT" : " used")
+            + " (the worse of each account's 5h and weekly window, averaged\(left))"
+    }
+}
+
+/// FLEET-1: the two knobs the menu-bar label reads, and the one rule that turns
+/// a pool figure into the number shown.
+///
+/// Both live in `UserDefaults` and are read with `@AppStorage` from the views
+/// that need them — never from inside an `ObservableObject`, where `@AppStorage`
+/// is a `DynamicProperty` that would silently stop publishing (the same trap
+/// `StatusModel.tab` documents).
+enum FleetDisplay {
+    /// Draw a bar beside each figure. OFF by default: the figures are what the
+    /// decision needs, and AX found the bars added width without adding an
+    /// answer (2026-09-09). The bar stays available for whoever reads a shape
+    /// faster than a number.
+    static let barsKey = "fleetShowsBars"
+    /// Show what is LEFT rather than what is spent. Off by default, because
+    /// every other usage surface in ccsbar and in clauth's own TUI reports
+    /// utilisation, and one surface counting the other way is how "8% in
+    /// reserve" got read as "8% left" the last time it was tried.
+    static let remainingKey = "fleetShowsRemaining"
+
+    /// The integer the label prints for a pool figure. `remaining` flips the
+    /// axis; the rounding happens AFTER the flip so 99.6% used reads as 0 left,
+    /// not 1 — a rounded-up remainder promises headroom that is already gone.
+    nonisolated static func shown(_ pct: Double, remaining: Bool) -> Int {
+        let clamped = min(max(pct, 0), 100)
+        return Int((remaining ? 100 - clamped : clamped).rounded())
     }
 }
 
@@ -171,13 +201,28 @@ enum FleetBarsImage {
         return image
     }
 
-    /// The two figures as the compact text beside the bars: `75·95`, in the
-    /// same order the bars are stacked. The numbers are what make the bars
-    /// readable — a bar alone answers "roughly how much", and the decision
-    /// ("do I start a long run on Codex") wants the figure.
-    static func numbers(_ fleet: FleetUsage) -> String {
-        [fleet.claude, fleet.codex]
-            .compactMap { $0.map { "\(Int($0.rounded()))" } }
-            .joined(separator: "·")
+    /// ONE bar for one pool, sized for the menu bar's line. Used when the bars
+    /// are switched on: each rides inside its harness's own group, after the
+    /// brand glyph, so a bar can never be read against the wrong harness.
+    static func one(_ pct: Double) -> NSImage {
+        let image = NSImage(size: NSSize(width: width, height: barHeight))
+        image.lockFocus()
+        let radius = barHeight / 2
+        let track = NSRect(x: 0, y: 0, width: width, height: barHeight)
+        NSColor.black.withAlphaComponent(0.28).setFill()
+        NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
+        let fraction = min(max(pct / 100, 0), 1)
+        if fraction > 0 {
+            let filled = max(fraction * width, barHeight)
+            NSColor.black.setFill()
+            NSBezierPath(
+                roundedRect: NSRect(x: 0, y: 0, width: filled, height: barHeight),
+                xRadius: radius,
+                yRadius: radius
+            ).fill()
+        }
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
     }
 }

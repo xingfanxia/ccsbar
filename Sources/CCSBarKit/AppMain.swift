@@ -67,6 +67,12 @@ struct CCSBarApp: App {
 /// never load-bearing here.
 private struct MenuBarLabel: View {
     @ObservedObject var model: StatusModel
+    /// Read here rather than on `StatusModel`: `@AppStorage` is a
+    /// `DynamicProperty` and never publishes from inside an `ObservableObject`
+    /// (the trap `StatusModel.tab` documents), but in a View it is exactly the
+    /// right thing — the label redraws the moment the panel's toggle flips.
+    @AppStorage(FleetDisplay.barsKey) private var showsBars = false
+    @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
 
     var body: some View {
         let spec = MenuBarLabelLadder.spec(
@@ -77,38 +83,69 @@ private struct MenuBarLabel: View {
         )
         let fleet = FleetUsage.compute(model.status)
         // FLEET-1: on the ordinary rungs the label is about the POOL, not the
-        // account you happen to be on — two bars (Claude over Codex) and their
-        // two figures, replacing the gauge glyph and the active account's name.
-        // The name is one click away in the panel; how much of everything is
-        // left is the thing a glance has to answer, and the old label could not
-        // (it showed one fixed claude account, which is exactly the complaint).
+        // account you happen to be on — one group per harness, each led by that
+        // harness's own brand glyph so the two figures can never be read the
+        // wrong way round (AX, 2026-09-09: "有点难区分"). The active account's
+        // name lives in the panel; how much of everything is left is what a
+        // glance has to answer, and the old label could not.
+        //
         // Every exceptional rung keeps its glyph and its own text: there the
         // glyph IS the state — a warning triangle for a dead daemon, an
         // ellipsis mid-switch, `powersleep` for all-off — and a pool figure
         // would bury the one thing to act on.
-        let bars = spec.showsFleetBars ? FleetBarsImage.make(fleet) : nil
-        HStack(spacing: 3) {
-            if let bars {
-                Image(nsImage: bars)
+        let showsFleet = spec.showsFleetBars && !fleet.isEmpty
+        HStack(spacing: 6) {
+            if showsFleet {
+                if let claude = fleet.claude {
+                    harnessFigure(.claude, pct: claude)
+                }
+                if let codex = fleet.codex {
+                    harnessFigure(.codex, pct: codex)
+                }
             } else {
-                Image(systemName: spec.symbol)
-            }
-            if spec.nearThresholdDot {
-                Image(systemName: "circlebadge.fill").font(.system(size: 5))
-            }
-            if bars != nil {
-                Text(FleetBarsImage.numbers(fleet))
-                    .font(.system(size: 13)).monospacedDigit().lineLimit(1)
-            } else if !spec.text.isEmpty {
-                Text(spec.text).font(.system(size: 13)).monospacedDigit().lineLimit(1)
-            }
-            if let available = spec.availabilityDot {
-                Image(systemName: available ? "circle.fill" : "circle").font(.system(size: 6))
+                HStack(spacing: 3) {
+                    Image(systemName: spec.symbol)
+                    if spec.nearThresholdDot {
+                        Image(systemName: "circlebadge.fill").font(.system(size: 5))
+                    }
+                    if !spec.text.isEmpty {
+                        Text(spec.text).font(.system(size: 13)).monospacedDigit().lineLimit(1)
+                    }
+                    if let available = spec.availabilityDot {
+                        Image(systemName: available ? "circle.fill" : "circle").font(.system(size: 6))
+                    }
+                }
             }
             if let trailing = spec.trailingSymbol {
                 Image(systemName: trailing)
             }
         }
-        .help(FleetUsage.sentence(fleet))
+        .help(FleetUsage.sentence(fleet, remaining: showsRemaining))
+    }
+
+    /// One harness's figure: its brand glyph, the optional bar, the number.
+    /// The glyph is the SAME template mark the panel's tabs use, so the menu
+    /// bar and the page you land on after clicking it agree about which is
+    /// which.
+    @ViewBuilder
+    private func harnessFigure(_ harness: Harness, pct: Double) -> some View {
+        HStack(spacing: 2) {
+            if let glyph = ProviderGlyph.image(for: harness) {
+                Image(nsImage: glyph)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 11, height: 11)
+            } else {
+                // A missing brand asset must never blank the label; fall back to
+                // a letter rather than dropping the harness entirely.
+                Text(harness == .codex ? "X" : "C").font(.system(size: 10, weight: .semibold))
+            }
+            if showsBars {
+                Image(nsImage: FleetBarsImage.one(pct))
+            }
+            Text("\(FleetDisplay.shown(pct, remaining: showsRemaining))")
+                .font(.system(size: 13)).monospacedDigit().lineLimit(1)
+        }
     }
 }

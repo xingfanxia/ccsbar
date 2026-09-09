@@ -201,10 +201,37 @@ final class FleetUsageTests: XCTestCase {
         XCTAssertNil(FleetBarsImage.make(FleetUsage(claude: nil, codex: nil)))
     }
 
-    func testNumbersFollowTheBarOrderAndRound() {
-        XCTAssertEqual(FleetBarsImage.numbers(FleetUsage(claude: 74.6, codex: 94.5)), "75·95")
-        XCTAssertEqual(FleetBarsImage.numbers(FleetUsage(claude: 10, codex: nil)), "10")
-        XCTAssertEqual(FleetBarsImage.numbers(FleetUsage(claude: nil, codex: nil)), "")
+    func testShownFlipsTheAxisAndRoundsAfterTheFlip() {
+        XCTAssertEqual(FleetDisplay.shown(74.6, remaining: false), 75)
+        XCTAssertEqual(FleetDisplay.shown(74.6, remaining: true), 25)
+        // Rounding AFTER the flip: 99.6% spent has nothing left, and a rounded
+        // -up 1 would promise headroom that is already gone.
+        XCTAssertEqual(FleetDisplay.shown(99.6, remaining: true), 0)
+        XCTAssertEqual(FleetDisplay.shown(120, remaining: false), 100, "clamped")
+        XCTAssertEqual(FleetDisplay.shown(120, remaining: true), 0)
+    }
+
+    func testOneBarIsATemplateOfTheLineWidth() {
+        let bar = FleetBarsImage.one(50)
+        XCTAssertTrue(bar.isTemplate)
+        XCTAssertEqual(bar.size.width, FleetBarsImage.width)
+        XCTAssertEqual(bar.size.height, FleetBarsImage.barHeight)
+    }
+
+    @MainActor
+    func testBothHarnessGlyphsResolve() {
+        // The label leads each figure with its harness's brand mark; a missing
+        // asset falls back to a letter, but neither should be missing today.
+        XCTAssertNotNil(ProviderGlyph.image(for: .claude))
+        XCTAssertNotNil(ProviderGlyph.image(for: .codex))
+    }
+
+    func testSentenceSaysWhichWayItIsCounting() {
+        let fleet = FleetUsage(claude: 77, claudeCount: 1, codex: 95, codexCount: 2)
+        XCTAssertTrue(FleetUsage.sentence(fleet, remaining: false).contains("% of 1 account · Codex 95% of 2 accounts used"),
+                      FleetUsage.sentence(fleet, remaining: false))
+        let left = FleetUsage.sentence(fleet, remaining: true)
+        XCTAssertTrue(left.hasPrefix("Claude 23% of 1 account · Codex 5% of 2 accounts LEFT"), left)
     }
 
     // ── the ladder only swaps the glyph on the ordinary rungs ────────────────
