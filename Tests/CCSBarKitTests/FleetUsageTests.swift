@@ -56,10 +56,16 @@ final class FleetUsageTests: XCTestCase {
     private static let generatedAt = "2026-09-09T00:00:00+00:00"
     private var feedNow: Date { Theme.parseISO(Self.generatedAt) ?? Date() }
 
-    private func status(_ profiles: [String], active: String? = nil) throws -> DaemonStatus {
+    private func status(
+        _ profiles: [String],
+        active: String? = nil,
+        activeCodex: String? = nil
+    ) throws -> DaemonStatus {
         let activeJSON = active.map { "\"\($0)\"" } ?? "null"
+        let activeCodexJSON = activeCodex.map { "\"\($0)\"" } ?? "null"
         let json = """
         {"schema":1,"generated_at":"\(Self.generatedAt)","active_profile":\(activeJSON),
+         "active_codex_profile":\(activeCodexJSON),
          "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
          "profiles":[\(profiles.joined(separator: ","))]}
         """
@@ -68,16 +74,79 @@ final class FleetUsageTests: XCTestCase {
 
     // ── the figure itself ────────────────────────────────────────────────────
 
-    func testPoolIsTheMeanOfEachAccountsWorseWindow() throws {
-        // 5h beats weekly on one, weekly beats 5h on the other: (80 + 60) / 2.
+    func testPoolIsTheMeanOfEachAccountsWEEKLYWindow() throws {
+        // The 5h readings are the louder pair and are deliberately ignored:
+        // (10 + 60) / 2, not (80 + 60) / 2. A label that tracked the 5h window
+        // swung 95 → 5 across one lunch break and could not be planned around.
         let fleet = FleetUsage.compute(try status([
             profileJSON("a", fiveH: 80, sevenD: 10),
             profileJSON("b", fiveH: 20, sevenD: 60),
         ]))
-        XCTAssertEqual(try XCTUnwrap(fleet.claude), 70, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(fleet.claude), 35, accuracy: 0.001)
         XCTAssertEqual(fleet.claudeCount, 2, "the tooltip has to be able to say how many")
         XCTAssertNil(fleet.codex, "no codex account — an absent bar, never 0%")
         XCTAssertEqual(fleet.codexCount, 0)
+    }
+
+    func testFiveHourStandsInOnlyWhenThereIsNoWeeklyWindow() throws {
+        let fleet = FleetUsage.compute(try status([profileJSON("a", fiveH: 42)]))
+        XCTAssertEqual(
+            try XCTUnwrap(fleet.claude), 42, accuracy: 0.001,
+            "an account with only a 5h window still has a figure, not an absence"
+        )
+    }
+
+    // ── pool or active account ───────────────────────────────────────────────
+
+    func testActiveOnlyReadsEachHarnessOwnSlot() throws {
+        let feed = try status(
+            [
+                profileJSON("cc-1", sevenD: 10, active: true),
+                profileJSON("cc-2", sevenD: 90),
+                profileJSON("cx-1", harness: "codex", sevenD: 20, provider: "openai"),
+                profileJSON("cx-2", harness: "codex", sevenD: 80, provider: "openai", active: true),
+            ],
+            active: "cc-1",
+            activeCodex: "cx-2"
+        )
+        let fleet = FleetUsage.compute(feed, activeOnly: true)
+        // The two slots are independent — reading `active_profile` for codex
+        // would report the claude account or nothing at all.
+        XCTAssertEqual(try XCTUnwrap(fleet.claude), 10, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(fleet.codex), 80, accuracy: 0.001)
+        XCTAssertEqual(fleet.claudeCount, 1)
+        XCTAssertEqual(fleet.codexCount, 1)
+
+        let pool = FleetUsage.compute(feed)
+        XCTAssertEqual(try XCTUnwrap(pool.claude), 50, accuracy: 0.001, "the pool still averages")
+    }
+
+    func testActiveOnlyDrawsNothingForAHarnessWithNoSlot() throws {
+        let fleet = FleetUsage.compute(
+            try status([profileJSON("cc-1", sevenD: 10)], active: nil),
+            activeOnly: true
+        )
+        XCTAssertNil(fleet.claude, "no slot pointer is an absence, never the first account")
+    }
+
+    func testActiveOnlyStillExcludesABrokenActiveAccount() throws {
+        let fleet = FleetUsage.compute(
+            try status([profileJSON("cc-1", sevenD: 10, authStatus: "broken")], active: "cc-1"),
+            activeOnly: true
+        )
+        XCTAssertNil(fleet.claude, "a quota you cannot spend is not a reading")
+    }
+
+    func testSentenceDropsTheAccountCountWhenReadingOneNamedAccount() {
+        let one = FleetUsage(claude: 40, claudeCount: 1, codex: nil, excluded: 3)
+        XCTAssertEqual(
+            FleetUsage.sentence(one, activeOnly: true),
+            "Claude 40% used of the weekly window, active account only"
+        )
+        XCTAssertTrue(
+            FleetUsage.sentence(one).contains("of 1 account"),
+            "over a pool the count is the thing the figure cannot show"
+        )
     }
 
     func testHarnessesAreMeasuredSeparately() throws {

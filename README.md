@@ -109,10 +109,13 @@ swift run          # launches as a menu-bar accessory (no Dock icon)
 
 The menu-bar title shows the **whole fleet**: each harness's brand glyph followed
 by how much of that harness's account pool is spent — the mean over its countable
-accounts of the worse of their 5h and weekly windows. Scoped per-model windows,
-broken logins and lapsed plans are left out, and a harness with nothing countable
-draws no figure rather than 0%. Two switches in the panel, both off by default,
-show a bar beside each number and count what is LEFT instead of what is spent.
+accounts of their **weekly** window (the 5h one stands in only where there is no
+weekly). The week is what a decision to start something long turns on, and it is
+the only window codex publishes, so both harnesses read on one axis. Scoped
+per-model windows, broken logins and lapsed plans are left out, and a harness with
+nothing countable draws no figure rather than 0%. Three switches in the panel, all
+off by default: read each harness's **active account** instead of its pool, count
+what is **LEFT** instead of what is spent, and draw a **bar** beside each number.
 Exceptional states replace the pool entirely with the state's own glyph and text:
 a switch-in-flight ellipsis, a rotation glyph, a `bolt.slash` when auto-switch is
 disarmed, or a warning triangle + frozen age when the daemon dies (the % is
@@ -202,9 +205,9 @@ Implemented (the CBAR-4 "Preflight" redesign):
 
 - **SwiftUI `MenuBarExtra(.window)`** translucent panel (matching CodexBar),
   light/dark aware — replaces the earlier `NSMenu` + block-character (█░) bars.
-- **Menu-bar fleet label** — a brand glyph + pool figure per harness, composited
-  into one template image (`MenuBarExtra` drops sibling views). Optional bars and a
-  used/remaining flip. Exceptional rungs keep their own glyph and text, all state in
+- **Menu-bar fleet label** — a brand glyph + weekly pool figure per harness,
+  composited into one template image (`MenuBarExtra` drops sibling views). Optional
+  bars, a used/remaining flip, and a pool/active-account flip. Exceptional rungs keep their own glyph and text, all state in
   the SF Symbol shape (never color, which the menu bar flattens): near-threshold
   dot, switch-in-flight ellipsis, rotation glyph, `bolt.slash` when disarmed, and a
   warning triangle + frozen age (% withheld) when the daemon dies.

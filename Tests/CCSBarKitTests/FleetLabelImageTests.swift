@@ -131,4 +131,27 @@ final class FleetLabelImageTests: XCTestCase {
         XCTAssertEqual(FleetDisplay.value(140, remaining: true), 0, "clamped before the flip")
         XCTAssertEqual(FleetDisplay.value(-5, remaining: false), 0)
     }
+
+    func testTheBrandGlyphsSurviveAColdFirstRender() throws {
+        // The glyph box has to carry ink of its own. "Only the numbers
+        // survived" is the shape every menu-bar failure here has taken, and the
+        // ink-in-both-halves test cannot see it: the numbers alone satisfy that
+        // one. Caches are dropped first so this exercises the menu bar's real
+        // case, the FIRST label of a session, where nothing has resolved a
+        // brand glyph yet.
+        ProviderGlyph.resetCachesForTesting()
+        guard let image = FleetLabelImage.make(
+            both, remaining: false, showsBars: false, trailing: nil
+        ) else { return XCTFail("a two-harness fleet must produce a label") }
+        let columns = try inkedColumns(image)
+        // The first figure reserves a glyph-wide box at x = 0, then its number.
+        // Ink in that box is the mark; the numbers cannot reach it.
+        let glyphBox = Int(
+            (CGFloat(columns.count) / image.size.width) * FleetLabelImage.glyphBoxWidth
+        )
+        XCTAssertTrue(
+            columns[..<glyphBox].contains(true),
+            "the brand glyph drew nothing on a cold render — only the numbers survived"
+        )
+    }
 }

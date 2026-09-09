@@ -73,6 +73,7 @@ private struct MenuBarLabel: View {
     /// right thing — the label redraws the moment the panel's toggle flips.
     @AppStorage(FleetDisplay.barsKey) private var showsBars = false
     @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
+    @AppStorage(FleetDisplay.activeOnlyKey) private var showsActiveOnly = false
 
     var body: some View {
         let spec = MenuBarLabelLadder.spec(
@@ -81,7 +82,7 @@ private struct MenuBarLabel: View {
             rotationFlash: model.rotationFlash,
             now: Date()
         )
-        let fleet = FleetUsage.compute(model.status)
+        let fleet = FleetUsage.compute(model.status, activeOnly: showsActiveOnly)
         // FLEET-1: on the ordinary rungs the label is about the POOL, not the
         // account you happen to be on — one figure per harness, each led by
         // that harness's own brand glyph so the two can never be read the wrong
@@ -126,6 +127,6 @@ private struct MenuBarLabel: View {
                 }
             }
         }
-        .help(FleetUsage.sentence(fleet, remaining: showsRemaining))
+        .help(FleetUsage.sentence(fleet, remaining: showsRemaining, activeOnly: showsActiveOnly))
     }
 }

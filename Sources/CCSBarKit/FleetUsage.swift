@@ -11,14 +11,27 @@ import SwiftUI
 /// Claude fleet says nothing about Codex quota, and averaging them together
 /// would produce a figure that describes no real limit.
 ///
-/// **Definition.** Per account: `max(5h, 7d)` — the account is unusable when
-/// EITHER unscoped window caps, so its spent-ness is the worse of the two. The
-/// per-model windows (`7d fable`, `7d opus`) are deliberately excluded: they
+/// **Definition.** Per account: the WEEKLY window, falling back to the 5h one
+/// for an account that publishes no weekly. It was the worse of the two, which
+/// in practice meant the label tracked the 5h window and swung by tens of
+/// points across a lunch break, then reset to nothing (AX watched it go 95 → 5
+/// on 2026-09-09). A number you cannot plan a day around is not worth a menu
+/// bar slot. The week is the window that actually decides whether to start
+/// something long, and it is the only window codex publishes at all, so
+/// reading it puts both harnesses on one axis. The 5h window keeps its own
+/// loud surfaces: the account row's dominant bar, and the daemon's own
+/// rotation. The per-model windows (`7d fable`, `7d opus`) stay excluded: they
 /// cap one model, not the account, and folding them in would report a fleet as
 /// spent because everyone's Fable week is gone while every account still runs
 /// Sonnet fine. Fleet: the plain mean over countable accounts — accounts are
 /// equal units within a harness (they hold comparable plans), and a weighted
 /// mean would need quota sizes no API publishes.
+///
+/// **Pool or active account.** `activeOnly` narrows each harness to the one
+/// account its slot is pointing at. The pool answers "can I start a long run",
+/// the active account answers "how close is the thing I am typing into right
+/// now"; both are real questions and which one you want is a preference, so it
+/// is a switch rather than a ruling.
 ///
 /// **Countable** = has at least one unscoped window (so no third-party api-key
 /// account, which reports a balance rather than a percentage), a live plan, and
@@ -62,10 +75,20 @@ struct FleetUsage: Equatable, Sendable {
     /// Whether there is anything at all to draw.
     var isEmpty: Bool { claude == nil && codex == nil }
 
-    static func compute(_ status: DaemonStatus?) -> FleetUsage {
+    static func compute(_ status: DaemonStatus?, activeOnly: Bool = false) -> FleetUsage {
         guard let status else { return FleetUsage(claude: nil, codex: nil) }
-        let cc = pool(status.profiles.filter { !$0.isCodex })
-        let cx = pool(status.profiles.filter(\.isCodex))
+        func members(_ harness: Harness) -> [ProfileStatus] {
+            let rows = status.profiles.filter { $0.harnessKind == harness }
+            guard activeOnly else { return rows }
+            // The slot pointer, not a per-row flag: the two harnesses have
+            // independent active slots and a codex switch never moves the
+            // claude one. A slot pointing at nothing leaves that harness with
+            // no figure, which is the same absence an empty pool draws.
+            guard let name = status.activeName(for: harness) else { return [] }
+            return rows.filter { $0.name == name }
+        }
+        let cc = pool(members(.claude))
+        let cx = pool(members(.codex))
         // Left out = has a window to report, but its login or plan says the
         // quota cannot be spent. An account with no window at all (a
         // third-party balance account) is not in this population.
@@ -91,31 +114,44 @@ struct FleetUsage: Equatable, Sendable {
     /// Split out so the exclusions are testable one at a time.
     static func spentPct(_ p: ProfileStatus) -> Double? {
         if p.authBroken || p.planInactive { return nil }
-        let unscoped = [p.fiveHour, p.sevenDay].compactMap { $0?.utilizationPct }
-        guard let worst = unscoped.max() else { return nil }
-        return min(max(worst, 0), 100)
+        // Weekly first. The 5h reading stands in only for an account that has
+        // no weekly window at all, where it is the sole thing on offer.
+        guard let pct = (p.sevenDay ?? p.fiveHour)?.utilizationPct else { return nil }
+        return min(max(pct, 0), 100)
     }
 
     /// "Claude 75% of 1 account · Codex 95% of 2 accounts" — the sentence the
     /// tooltip and VoiceOver share, so they cannot drift apart. The counts are
     /// in it because the bars cannot show them and a pool of one is a different
     /// fact from a pool of five.
-    nonisolated static func sentence(_ fleet: FleetUsage, remaining: Bool = false) -> String {
+    nonisolated static func sentence(
+        _ fleet: FleetUsage,
+        remaining: Bool = false,
+        activeOnly: Bool = false
+    ) -> String {
         let parts = [
             ("Claude", fleet.claude, fleet.claudeCount),
             ("Codex", fleet.codex, fleet.codexCount),
         ].compactMap { label, pct, n -> String? in
             guard let pct else { return nil }
             let shown = FleetDisplay.shown(pct, remaining: remaining)
-            return "\(label) \(shown)% of \(n) account\(n == 1 ? "" : "s")"
+            // The count is what a pool figure cannot show and a reader needs:
+            // "75%" over one surviving account and over five are different
+            // facts. Reading a single named account, it says nothing.
+            let over = activeOnly ? "" : " of \(n) account\(n == 1 ? "" : "s")"
+            return "\(label) \(shown)%\(over)"
         }
-        guard !parts.isEmpty else { return "No account pool to measure yet" }
-        let left = fleet.excluded == 0
+        guard !parts.isEmpty else {
+            return activeOnly ? "No active account to measure yet" : "No account pool to measure yet"
+        }
+        // Exclusions explain a pool that is smaller than the roster. In
+        // active-account mode there is no pool to be surprised by.
+        let left = fleet.excluded == 0 || activeOnly
             ? ""
             : "; \(fleet.excluded) more left out, their login or plan says the quota can't be spent"
         return parts.joined(separator: " · ")
             + (remaining ? " LEFT" : " used")
-            + " (the worse of each account's 5h and weekly window, averaged\(left))"
+            + " of the weekly window\(activeOnly ? ", active account only" : ", averaged over the pool")\(left)"
     }
 }
 
@@ -136,11 +172,21 @@ struct FleetUsage: Equatable, Sendable {
 /// black and the tracks carry their contrast in ALPHA rather than colour.
 @MainActor
 enum FleetLabelImage {
-    private static let glyph: CGFloat = 11
+    /// Label metrics, in points. The glyph is sized to the menu bar's own
+    /// marks, NOT to the text beside it: an SF Symbol at the system's menu-bar
+    /// weight draws about 16pt tall, so a brand mark drawn at the text's cap
+    /// height reads as a shrunken version of every other icon on the bar
+    /// (AX, 2026-09-09: 「图标好小啊」). The bar is ~22pt tall and the status
+    /// item insets it, so 16 is the ceiling before the system scales the whole
+    /// composite down and takes the numbers with it.
+    private static let glyph: CGFloat = 16
+    /// The reserved glyph box, so a test can look at exactly the columns the
+    /// brand mark owns rather than guessing at the layout.
+    static var glyphBoxWidth: CGFloat { glyph }
     private static let glyphGap: CGFloat = 3
     private static let groupGap: CGFloat = 9
     private static let barGap: CGFloat = 3
-    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
 
     /// One drawn figure: which harness it belongs to, the number it prints and
     /// the value its bar fills to. Pure and `nonisolated`, because the two ways
@@ -194,6 +240,18 @@ enum FleetLabelImage {
         let trailingMark = trailing.flatMap {
             NSImage(systemSymbolName: $0, accessibilityDescription: nil)
         }
+        // Resolve every mark and its ink box BEFORE locking focus. Measuring a
+        // glyph rasterises it, and rasterising one image inside another's focus
+        // lock is a nesting AppKit does not promise anything about. It has not
+        // been caught misbehaving here; keeping the work outside the lock costs
+        // nothing and removes the question.
+        let marks: [Harness: (NSImage, NSRect)] = groups.reduce(into: [:]) { acc, group in
+            guard acc[group.harness] == nil, let mark = ProviderGlyph.image(for: group.harness)
+            else { return }
+            let ink = ProviderGlyph.inkBounds(for: group.harness)
+                ?? NSRect(origin: .zero, size: mark.size)
+            acc[group.harness] = (mark, ink)
+        }
 
         var width: CGFloat = 0
         for (i, text) in texts.enumerated() {
@@ -210,10 +268,22 @@ enum FleetLabelImage {
         var x: CGFloat = 0
         for (i, group) in groups.enumerated() {
             if i > 0 { x += groupGap }
-            if let mark = ProviderGlyph.image(for: group.harness) {
+            if let (mark, ink) = marks[group.harness] {
+                // Draw the mark's INK to fill the reserved box, not the whole
+                // image: the brand SVGs carry transparent padding, and at their
+                // nominal size they read as shrunken next to the SF Symbols on
+                // either side. Aspect is preserved, so a non-square mark is
+                // fitted rather than stretched.
+                let scale = min(glyph / ink.width, glyph / ink.height)
+                let drawn = NSSize(width: ink.width * scale, height: ink.height * scale)
                 mark.draw(
-                    in: NSRect(x: x, y: (height - glyph) / 2, width: glyph, height: glyph),
-                    from: .zero,
+                    in: NSRect(
+                        x: x + (glyph - drawn.width) / 2,
+                        y: (height - drawn.height) / 2,
+                        width: drawn.width,
+                        height: drawn.height
+                    ),
+                    from: ink,
                     operation: .sourceOver,
                     fraction: 1
                 )
@@ -278,6 +348,11 @@ enum FleetDisplay {
     /// utilisation, and one surface counting the other way is how "8% in
     /// reserve" got read as "8% left" the last time it was tried.
     static let remainingKey = "fleetShowsRemaining"
+    /// Read the ACTIVE account of each harness instead of the whole pool. Off
+    /// by default: the pool is the figure that changes a decision before you
+    /// start work, and the active account's own numbers are one click away in
+    /// the panel.
+    static let activeOnlyKey = "fleetShowsActiveOnly"
 
     /// The figure on the axis the label is currently reading, unrounded.
     /// Everything that depicts the figure — the printed number AND the bar

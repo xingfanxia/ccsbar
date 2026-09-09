@@ -12,6 +12,7 @@ struct PanelView: View {
     /// an `ObservableObject` — see `FleetDisplay`.
     @AppStorage(FleetDisplay.barsKey) private var fleetShowsBars = false
     @AppStorage(FleetDisplay.remainingKey) private var fleetShowsRemaining = false
+    @AppStorage(FleetDisplay.activeOnlyKey) private var fleetShowsActiveOnly = false
     @ObservedObject var model: StatusModel
 
     var body: some View {
@@ -139,6 +140,14 @@ struct PanelView: View {
             // FLEET-1 menu-bar knobs. They live beside "Start at login" because
             // that is where the app's own (not an account's) preferences are,
             // and both change what the MENU BAR shows rather than this panel.
+            PanelSwitchToggle(isOn: $fleetShowsActiveOnly) {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.crop.circle").frame(width: 16)
+                    Text("Menu bar shows active account"); Spacer()
+                }
+            }
+            .padding(.vertical, 5).padding(.horizontal, 8)
+            .help("Read each harness's active account instead of averaging its whole pool.")
             PanelSwitchToggle(isOn: $fleetShowsRemaining) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.left.arrow.right.circle").frame(width: 16)
@@ -146,7 +155,7 @@ struct PanelView: View {
                 }
             }
             .padding(.vertical, 5).padding(.horizontal, 8)
-            .help("Show what is LEFT of each harness's pool instead of what is spent.")
+            .help("Show what is LEFT of the weekly window instead of what is spent.")
             PanelSwitchToggle(isOn: $fleetShowsBars) {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.bar").frame(width: 16)
