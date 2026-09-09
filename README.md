@@ -107,11 +107,21 @@ and lets you switch by hand when you want to. The full story:
 swift run          # launches as a menu-bar accessory (no Dock icon)
 ```
 
-The menu-bar title shows the **active account name + 5h %** (so the active
-account is unmistakable at a glance), with all other state encoded in the SF Symbol
-shape — a near-threshold dot, a switch-in-flight ellipsis, a rotation glyph, a
-`bolt.slash` when auto-switch is disarmed, or a warning triangle + frozen age when
-the daemon dies (the % is withheld rather than shown stale). Clicking it opens a
+The menu-bar title shows the **whole fleet**: each harness's brand glyph followed
+by how much of that harness's account pool is spent — the mean over its countable
+accounts of the worse of their 5h and weekly windows. Scoped per-model windows,
+broken logins and lapsed plans are left out, and a harness with nothing countable
+draws no figure rather than 0%. Two switches in the panel, both off by default,
+show a bar beside each number and count what is LEFT instead of what is spent.
+Exceptional states replace the pool entirely with the state's own glyph and text:
+a switch-in-flight ellipsis, a rotation glyph, a `bolt.slash` when auto-switch is
+disarmed, or a warning triangle + frozen age when the daemon dies (the % is
+withheld rather than shown stale).
+
+The label is composited into ONE template `NSImage` rather than assembled from
+SwiftUI views. `MenuBarExtra` reduces its label to the status item's image and
+silently drops siblings — it ate the bars once and one of the two harness groups
+once, both times from a build whose tests were green. Clicking it opens a
 translucent SwiftUI panel (`MenuBarExtra(.window)`, matching CodexBar's look), laid
 out top to bottom as **tokens strip → status strip → account list → detail card →
 chain rail → actions**:
@@ -192,8 +202,10 @@ Implemented (the CBAR-4 "Preflight" redesign):
 
 - **SwiftUI `MenuBarExtra(.window)`** translucent panel (matching CodexBar),
   light/dark aware — replaces the earlier `NSMenu` + block-character (█░) bars.
-- **Menu-bar label ladder** — active account **name + 5h %**, with all other state
-  in the SF Symbol shape (never color, which the menu bar flattens): near-threshold
+- **Menu-bar fleet label** — a brand glyph + pool figure per harness, composited
+  into one template image (`MenuBarExtra` drops sibling views). Optional bars and a
+  used/remaining flip. Exceptional rungs keep their own glyph and text, all state in
+  the SF Symbol shape (never color, which the menu bar flattens): near-threshold
   dot, switch-in-flight ellipsis, rotation glyph, `bolt.slash` when disarmed, and a
   warning triangle + frozen age (% withheld) when the daemon dies.
 - **Inspect-first account list** — file-order rows (never reorder); single click
@@ -268,6 +280,7 @@ Deferred:
 | `LivenessLadder.swift` | graded freshness (live / syncing / dead) on the 1s write cadence |
 | `SwitchMachine.swift` | pure switch-lifecycle reducer (arm / pending / confirmed / failed) |
 | `MenuBarLabelLadder.swift` | pure menu-bar label spec — all state in SF Symbol shape |
+| `FleetUsage.swift` | pure cross-harness pool figures, the used/remaining axis, and `FleetLabelImage` — the whole menu-bar label drawn as one template NSImage |
 | `ChainEdit.swift` | shared config vocabulary (presets, legends, removal gate) — one source of truth |
 | `StatusModel.swift` | `@MainActor ObservableObject` — polls `status.json`, drives switch/config effects + inspection |
 | `PanelView.swift` | panel orchestration: status strip → account list → detail card → chain rail → actions |
