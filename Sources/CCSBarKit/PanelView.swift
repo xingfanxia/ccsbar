@@ -140,41 +140,54 @@ struct PanelView: View {
             ActionRow(icon: "arrow.clockwise", title: "Refresh usage") { model.refresh() }
                 .disabled(dead)
                 .keyboardShortcut("r", modifiers: [])
-            // The display preferences, two to a row. They were four full-width
-            // switch rows whose labels all began "Menu bar shows…", which is
-            // one sentence with the last word changed — long to read and hard
-            // to tell apart (AX, 2026-09-14). The copy and the order live in
-            // `PanelDisplayOption`, so they can be read as a set.
-            Text("DISPLAY")
+            // The options grid. Two to a row, leading checkboxes.
+            //
+            // They were four full-width switch rows whose labels all began
+            // "Menu bar shows…" — one sentence with the last word changed, long
+            // to read and hard to tell apart. Two-up fixed the height and AX
+            // still did not like it (「感觉不好看」), for a structural reason: a
+            // switch needs a right edge to sit against, so with two per row the
+            // first column's switch lands in the MIDDLE of the row, a saturated
+            // slab with the next label starting a few points after it.
+            //
+            // A checkbox leads instead of trails, so both columns start at the
+            // same two x positions and the labels' ragged ends fall where
+            // nothing has to line up. Dropping the per-option glyphs is part of
+            // it: an icon column here competed with the checkbox column for the
+            // same job. Icons now mean "this row does something when you press
+            // it" — Refresh and Quit — and their absence means "this sets
+            // something". The copy and the order live in `PanelDisplayOption`.
+            Text("OPTIONS")
                 .font(Theme.sectionLabel).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 1)
+                .padding(.horizontal, 10).padding(.top, 10).padding(.bottom, 4)
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2)],
+                columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
                 alignment: .leading,
-                spacing: 1
+                spacing: 8
             ) {
                 ForEach(PanelDisplayOption.allCases) { option in
-                    PanelSwitchToggle(isOn: binding(for: option)) {
-                        HStack(spacing: 6) {
-                            Image(systemName: option.symbol).frame(width: 16)
-                            Text(option.label).font(Theme.sub).lineLimit(1)
-                            Spacer(minLength: 2)
-                        }
+                    PanelCheckToggle(isOn: binding(for: option)) {
+                        Text(option.label).font(Theme.sub).lineLimit(1)
                     }
-                    .padding(.vertical, 6).padding(.horizontal, 8)
                     .help(option.help)
                 }
-            }
-            if LoginItem.isAvailable {
-                PanelSwitchToggle(isOn: Binding(get: { LoginItem.isEnabled }, set: { LoginItem.setEnabled($0) })) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "power.circle").frame(width: 19)
-                        Text("Start at login"); Spacer()
+                // Start at login sits in the same grid rather than in a row of
+                // its own: it is not a display preference, but it IS the same
+                // kind of thing — a switch you set once — and a lone full-width
+                // row under a two-up grid is the ragged edge the grid exists to
+                // avoid. The section is called OPTIONS for that reason.
+                if LoginItem.isAvailable {
+                    PanelCheckToggle(isOn: Binding(
+                        get: { LoginItem.isEnabled },
+                        set: { LoginItem.setEnabled($0) }
+                    )) {
+                        Text("Start at login").font(Theme.sub).lineLimit(1)
                     }
+                    .help("Open ccsbar when you log in. The clauth daemon starts separately, through its own LaunchAgent.")
                 }
-                .padding(.vertical, 6).padding(.horizontal, 10)
             }
+            .padding(.horizontal, 10).padding(.bottom, 8)
             ActionRow(icon: "power", title: "Quit ccsbar · daemon keeps running") { NSApp.terminate(nil) }
                 .keyboardShortcut("q", modifiers: .command)
                 .help("The clauth daemon keeps running — auto-switch continues.")

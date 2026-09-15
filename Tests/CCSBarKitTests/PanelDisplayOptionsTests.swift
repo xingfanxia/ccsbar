@@ -41,9 +41,12 @@ final class PanelDisplayOptionsTests: XCTestCase {
     }
 
     func testLabelsFitAHalfWidthCell() {
-        // The grid puts two per row on a 420pt panel; a cell holds roughly
-        // eighteen characters at this type size before it truncates, and
-        // "Active account only" proved it by rendering as "Active account o…".
+        // The grid puts two per row on a 420pt panel. A leading checkbox costs
+        // 19pt of the ~196pt cell, so about twenty-eight characters fit; the
+        // budget is deliberately tighter than that. "Active account only"
+        // rendered as "Active account o…" back when a 31pt switch trailed each
+        // label, and a label that loses its last word is worse than one that
+        // never had it.
         for option in options {
             XCTAssertLessThanOrEqual(
                 option.label.count, 18,

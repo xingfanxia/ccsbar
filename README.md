@@ -113,8 +113,8 @@ accounts of their **weekly** window (the 5h one stands in only where there is no
 weekly). The week is what a decision to start something long turns on, and it is
 the only window codex publishes, so both harnesses read on one axis. Scoped
 per-model windows, broken logins and lapsed plans are left out, and a harness with
-nothing countable draws no figure rather than 0%. Four switches in the panel's
-DISPLAY block, two to a row: read each harness's **active account** instead of its
+nothing countable draws no figure rather than 0%. Four checkboxes in the panel's
+OPTIONS grid, two to a row: read each harness's **active account** instead of its
 pool, **count what is left** instead of what is spent (this one governs the account
 rows too, bar and number together), draw a **bar** beside each number (those three
 off by default), and show the **disarmed warning** — a `bolt.slash` after the
