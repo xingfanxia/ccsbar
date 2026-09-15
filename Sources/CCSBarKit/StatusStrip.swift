@@ -11,6 +11,22 @@ struct StatusStrip: View {
     @ObservedObject var model: StatusModel
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ladder
+            // How fresh the reading is belongs to the PAGE, not to one branch of
+            // the ladder. It used to hang off the forecast sentence only, so on
+            // an idle-auto-switch page — the common state when nothing is armed
+            // — nothing anywhere said how old the numbers were. The detail card
+            // carried a second copy; that card now only says what the account
+            // row cannot, and this is not an account fact.
+            if !isDead {
+                Text(model.livenessStamp).font(Theme.sub).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)
+    }
+
+    @ViewBuilder private var ladder: some View {
         Group {
             if isDead {
                 DeadDaemonBanner(model: model)
@@ -24,7 +40,6 @@ struct StatusStrip: View {
                 forecast(sentence)
             }
         }
-        .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)
     }
 
     // Dead = a frozen-but-present status (stalled); a never-written file is the
@@ -80,10 +95,7 @@ struct StatusStrip: View {
     private func forecast(_ sentence: String) -> some View {
         HStack(alignment: .top, spacing: 7) {
             Image(systemName: "bolt.fill").font(.system(size: 13)).foregroundStyle(Theme.sapphire)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(sentence).font(Theme.meta).fixedSize(horizontal: false, vertical: true)
-                Text(model.livenessStamp).font(Theme.sub).foregroundStyle(.secondary)
-            }
+            Text(sentence).font(Theme.meta).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
     }

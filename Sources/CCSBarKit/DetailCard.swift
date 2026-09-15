@@ -1,28 +1,96 @@
 import SwiftUI
 
-/// The detail card for the inspected account (design §2). Three windows with reset
-/// times, the forecast-driven chain-membership line, and THE one switch surface —
-/// which renders differently for the active account (static state), an auth-broken
-/// target (disabled login hint), a dead daemon (Switch via CLI), and the normal
-/// arm-confirm → pending flow.
+/// What the inspected account's ROW cannot say, plus the verb that acts on it.
+///
+/// This used to be a full card: the name and tier again, the email again, every
+/// window as a labelled bar with its percentage and reset again. All of it sits
+/// in the row two inches above, and the panel opens with the ACTIVE account
+/// inspected — so at rest the card was a second, taller rendering of the row
+/// already highlighted in the list (AX, 2026-09-14: 「那两块显示当前active
+/// account的信息呈现很重复 · 和上面account list展示的信息重复」).
+///
+/// So it carries only what is NOT in the list: the session-token horizon, the
+/// chain-membership sentence, a live isolated session, a third-party host, and
+/// the switch or re-login verb. Freshness went too — the status strip at the top
+/// of the page already stamps it. When the inspected account is active and
+/// healthy there is no verb, and if it also has nothing unique to report the
+/// card renders NOTHING, divider included.
 struct DetailCard: View {
     @ObservedObject var model: StatusModel
     let p: ProfileStatus
     let dead: Bool
 
+    /// Whether this card has anything to say. Drives the divider too — a rule
+    /// above an empty region is worse than no region.
+    var isEmpty: Bool {
+        Self.isEmpty(
+            hasVerb: hasVerb,
+            hasTokenLine: tokenLine != nil,
+            hasChainLine: model.chainLine(for: p) != nil,
+            hasLiveSession: p.hasLiveSession,
+            hasThirdPartyHost: thirdPartyHost != nil
+        )
+    }
+
+    /// The emptiness rule, as a pure function of the five things the card can
+    /// carry. Split out so it is testable without a view — the panel has no
+    /// render test, and the one thing that must never regress here is a divider
+    /// drawn over nothing.
+    nonisolated static func isEmpty(
+        hasVerb: Bool,
+        hasTokenLine: Bool,
+        hasChainLine: Bool,
+        hasLiveSession: Bool,
+        hasThirdPartyHost: Bool
+    ) -> Bool {
+        !hasVerb && !hasTokenLine && !hasChainLine && !hasLiveSession && !hasThirdPartyHost
+    }
+
+    private var hasVerb: Bool {
+        Self.showsVerb(
+            active: p.active,
+            authBroken: p.authBroken,
+            canReauth: p.provider == "anthropic" || p.isCodex
+        )
+    }
+
+    /// True when the card offers an action: a re-login for a broken account, or
+    /// a switch for one that is not already active.
+    ///
+    /// The active, healthy account gets NOTHING. A disabled "Active account"
+    /// button and a line telling you to pick another row were the loudest part
+    /// of what AX called a duplicate of the list above. A broken login still
+    /// outranks active-ness: an active account whose OAuth dropped is the most
+    /// urgent re-login case, and it is the one account you cannot switch away
+    /// from, so hiding its only fix would strand it.
+    nonisolated static func showsVerb(active: Bool, authBroken: Bool, canReauth: Bool) -> Bool {
+        if authBroken && canReauth { return true }
+        return !active
+    }
+
+    private var thirdPartyHost: String? {
+        p.provider == "anthropic" || p.isCodex ? nil : p.baseUrl
+    }
+
+    /// The session-token horizon, read from the sidecar per render.
+    private var tokenLine: (text: String, tone: SessionToken.Tone)? {
+        guard p.provider == "anthropic" else { return nil }
+        return SessionToken.statusLine(
+            SessionToken.state(profile: p.name),
+            nowMs: Int64(Date().timeIntervalSince1970 * 1000),
+            fed: p.rollingToken
+        )
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            header
-            // CAP-3: WHICH account this profile's login belongs to — the
-            // 2026-07-12 double-poll went unseen because no surface showed it.
-            if let email = p.accountEmail {
-                Text(email)
-                    .font(Theme.fine)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
-            }
+        if !isEmpty {
+            Divider().padding(.horizontal, 14).padding(.vertical, 7)
+            content.padding(.horizontal, 19)
+        }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 8) {
             // CLA-SPLIT: sessions on this account run on a static setup-token
             // mint — surface it and its ~1yr horizon (WARNING inside 30 days,
             // DANGER + re-mint hint once expired). Read from the sidecar per
@@ -30,109 +98,30 @@ struct DetailCard: View {
             // rolling-token profile (status.json `rolling_token`, legacy
             // `session_feed`) renders its hours-scale countdown as calm
             // maintenance instead.
-            if p.provider == "anthropic",
-               let line = SessionToken.statusLine(
-                   SessionToken.state(profile: p.name),
-                   nowMs: Int64(Date().timeIntervalSince1970 * 1000),
-                   fed: p.rollingToken
-               ) {
+            if let line = tokenLine {
                 Text(line.text)
                     .font(Theme.fine)
                     .foregroundStyle(line.tone == .danger ? Theme.danger
                         : line.tone == .warning ? Theme.warning : .secondary)
                     .lineLimit(1)
             }
-            // Codex profiles (provider "openai") carry %-windows (INT-2) so they
-            // take a window path, not the third-party availability card — but
-            // their window SET is dynamic (weekly-only since 2026-07, OpenAI
-            // dropped the 5h limit), so codex renders only the windows that exist
-            // instead of the fixed claude {5h, 7d} rows.
-            if p.isCodex {
-                codexWindows
-            } else if p.provider == "anthropic" {
-                windows
-            } else {
-                thirdPartyDetail
+            // An isolated `clauth start` session is holding this login, which is
+            // why a switch away from it can be refused. The row has no room for
+            // it and it changes what the verb below will do.
+            if p.hasLiveSession {
+                Label("Live session attached", systemImage: "terminal")
+                    .font(Theme.fine).foregroundStyle(.secondary)
+            }
+            // A third-party account's endpoint — the row reports whether it
+            // answers, never WHICH host answered.
+            if let host = thirdPartyHost {
+                Text(host).font(Theme.fine).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
             }
             if let line = model.chainLine(for: p) {
                 chainLine(line)
             }
             switchSurface
-        }
-        .padding(.horizontal, 19)
-    }
-
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(p.name).font(Theme.title).fontWeight(.semibold)
-            Text("· \(p.tier ?? providerLabel)").font(Theme.sub).foregroundStyle(.secondary)
-            Spacer()
-            Text(dead ? "as of \(model.frozenAge)" : "Fresh · \(model.freshAge)")
-                .font(Theme.sub).foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Windows
-
-    private var windows: some View {
-        VStack(spacing: 10) {
-            windowRow("Session 5h", p.fiveHour, tick: p.fallback?.threshold)
-            windowRow("Weekly 7d", p.sevenDay, tick: nil)
-            // Fable is a limited-trial window — shown only while the daemon still
-            // reports it (it drops out of status.json when the trial ends).
-            if let fable = p.fableWeek {
-                windowRow("Fable", fable, tick: nil)
-            }
-        }
-    }
-
-    /// Codex's dynamic window rows: only what exists. Weekly-only (the 2026-07
-    /// OpenAI shape) shows ONE "Weekly 7d" row with its real multi-day reset —
-    /// never a phantom "Session 5h —". The threshold tick renders only on a real
-    /// 5h row (chain thresholds are 5h semantics).
-    @ViewBuilder private var codexWindows: some View {
-        VStack(spacing: 10) {
-            if let five = p.fiveHour {
-                windowRow("Session 5h", five, tick: p.fallback?.threshold)
-            }
-            if let seven = p.sevenDay {
-                windowRow("Weekly 7d", seven, tick: nil)
-            }
-            if p.fiveHour == nil, p.sevenDay == nil {
-                Text("No usage data yet — appears after the first codex turn.")
-                    .font(Theme.sub).foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    private func windowRow(_ label: String, _ w: UsageWindow?, tick: Double?) -> some View {
-        HStack(spacing: 10) {
-            Text(label).font(Theme.body).fontWeight(.medium).frame(width: 106, alignment: .leading)
-            UsageBar(
-                pct: w?.utilizationPct ?? 0,
-                color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(w?.utilizationPct ?? 0, threshold: tick ?? 100),
-                height: 7, threshold: tick
-            )
-            Text(w.map { "\(Int($0.utilizationPct.rounded()))%" } ?? "—")
-                .font(Theme.body).monospacedDigit().frame(width: 48, alignment: .trailing)
-            Text(dead ? "" : (Theme.resetHint(w?.resetsAt).map { String($0.dropFirst("resets in ".count)) } ?? ""))
-                .font(Theme.sub).foregroundStyle(.secondary).frame(width: 77, alignment: .trailing)
-        }
-    }
-
-    private var thirdPartyDetail: some View {
-        let available = p.thirdParty?.available
-        return VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 7) {
-                Circle().fill(available == true ? Theme.success : (available == false ? Theme.danger : Color.secondary))
-                    .frame(width: 8, height: 8)
-                Text(available == true ? "Available" : (available == false ? "Unavailable" : "No data yet"))
-                    .font(Theme.body)
-            }
-            if let host = p.baseUrl {
-                Text(host).font(Theme.sub).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-            }
         }
     }
 
@@ -162,8 +151,12 @@ struct DetailCard: View {
         // so this surface and the context-menu item agree on who can reauth.
         if p.authBroken && (p.provider == "anthropic" || p.isCodex) {
             reauthSurface
-        } else if p.active {
-            activeState
+        } else if !Self.showsVerb(active: p.active, authBroken: p.authBroken,
+                                  canReauth: p.provider == "anthropic" || p.isCodex) {
+            // Nothing. The row's ✓ already says active, and "pick another
+            // account above" is advice nobody reads twice. Switching lives on
+            // the row's own context menu as well as on every other row's verb.
+            EmptyView()
         } else {
             // One button for both the live and offline paths so the arm-confirm cycle
             // works in BOTH: `switchTo` applies the live-session guard regardless of
@@ -174,34 +167,10 @@ struct DetailCard: View {
         }
     }
 
-    /// The harness's identity hue (TABS-1.1): terracotta claude, codex blue codex.
-    /// Codex uses ONE hue for identity and verb — white on #0A60FF is already AA
-    /// (5.1:1); terracotta needs the darkened `actVerb` for its verb fills.
-    private var identity: Color { p.isCodex ? Theme.codex : Theme.accent }
+    /// The harness's verb hue (TABS-1.1): codex blue for codex, the darkened
+    /// terracotta for claude — white on #0A60FF is already AA (5.1:1), while
+    /// plain terracotta needs `actVerb` to clear it under white button text.
     private var identityVerb: Color { p.isCodex ? Theme.codex : Theme.actVerb }
-
-    private var activeState: some View {
-        VStack(spacing: 6) {
-            HStack {
-                Spacer()
-                Label(p.hasLiveSession ? "Active account · live session attached" : "Active account",
-                      systemImage: "checkmark.circle.fill")
-                    .font(Theme.sub).foregroundStyle(identity)
-                Spacer()
-            }
-            .frame(height: 34)
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(identity.opacity(0.5), lineWidth: 1))
-            // The active account has no switch verb — so name the path. This is the
-            // one spot a first-time user looks for "how do I switch?" (the panel opens
-            // with the active account inspected, i.e. on exactly this card). The count
-            // is HARNESS-scoped (TABS-1): "above" means this page's list, and a
-            // single-codex page must not point at claude rows it doesn't show.
-            if model.profiles(for: p.harnessKind).count > 1 {
-                Text("Pick another account above to switch to it.")
-                    .font(Theme.fine).foregroundStyle(.tertiary)
-            }
-        }
-    }
 
     /// AUTH-3: the account's login dropped (`auth_broken`). Instead of a dead-end
     /// "run clauth login" hint, offer a one-click browser reauth — it re-mints
@@ -293,7 +262,4 @@ struct DetailCard: View {
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
     }
 
-    // clauth emits the provider's own display name (`anthropic` for OAuth, else a
-    // recognised third-party provider's name), so we surface it verbatim.
-    private var providerLabel: String { p.provider }
 }

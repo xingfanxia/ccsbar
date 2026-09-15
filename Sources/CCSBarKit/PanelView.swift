@@ -117,8 +117,10 @@ struct PanelView: View {
     @ViewBuilder
     private func harnessBody(_ status: DaemonStatus, harness: Harness, dead: Bool) -> some View {
         AccountsSection(model: model, status: status, harness: harness, dead: dead)
+        // The card draws its OWN divider, and only when it has something the
+        // row above does not already say — a rule over an empty region reads as
+        // a section that failed to load.
         if let inspected = model.inspected, inspected.harnessKind == harness {
-            Divider().padding(.horizontal, 14).padding(.vertical, 7)
             DetailCard(model: model, p: inspected, dead: dead)
         }
         if !model.profiles(for: harness).isEmpty {

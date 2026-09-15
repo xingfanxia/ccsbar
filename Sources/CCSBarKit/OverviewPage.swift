@@ -29,6 +29,9 @@ private struct HarnessCard: View {
     let harness: Harness
     let dead: Bool
     @State private var hovering = false
+    /// The same one preference the account rows and the menu bar read — the
+    /// Overview's bars are the same figures, so they cannot read the other way.
+    @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
 
     private var tab: ProviderTab { harness == .codex ? .codex : .claude }
     private var active: ProfileStatus? { model.activeProfile(for: harness) }
@@ -117,10 +120,11 @@ private struct HarnessCard: View {
                 pct: pct ?? 0,
                 color: dead ? Color.secondary.opacity(0.5)
                             : Theme.usageColor(pct ?? 0, threshold: threshold ?? 100),
-                height: 5
+                height: 5,
+                remaining: showsRemaining
             )
             .frame(maxWidth: .infinity)
-            Text(pct.map { "\(Int($0.rounded()))%" } ?? "—")
+            Text(pct.map { "\(FleetDisplay.shown($0, remaining: showsRemaining))%" } ?? "—")
                 .font(Theme.fine).monospacedDigit().foregroundStyle(.secondary)
         }
     }

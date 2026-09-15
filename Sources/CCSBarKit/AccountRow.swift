@@ -16,6 +16,11 @@ struct AccountRow: View {
     var showHarnessTag = true
     let onInspect: () -> Void
     @State private var hovering = false
+    /// Read here rather than on the model: `@AppStorage` is a `DynamicProperty`
+    /// and only publishes from inside a View. One preference governs the menu
+    /// bar AND these rows, because "used or left" is how the operator reads
+    /// usage, not a per-surface taste.
+    @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -30,6 +35,9 @@ struct AccountRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    // Selectable because the detail card, which used to be the
+                    // one place you could select it from, no longer repeats it.
+                    .textSelection(.enabled)
                     .padding(.leading, 22)
                     .padding(.top, -3)
             }
@@ -202,11 +210,12 @@ struct AccountRow: View {
                 pct: pct,
                 color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct, threshold: tick ?? 100),
                 height: 7,
-                threshold: tick
+                threshold: tick,
+                remaining: showsRemaining
             )
             HStack {
                 Text(label).font(Theme.fine).foregroundStyle(.tertiary)
-                Text("\(Int(pct.rounded()))%").font(Theme.figure)
+                Text("\(FleetDisplay.shown(pct, remaining: showsRemaining))%").font(Theme.figure)
                 Spacer()
                 Text(stamp(w?.resetsAt)).font(Theme.meta).foregroundStyle(.secondary)
             }
@@ -264,9 +273,15 @@ struct AccountRow: View {
     private func miniBar(_ label: String, _ pct: Double?) -> some View {
         HStack(spacing: 6) {
             Text(label).font(Theme.fine).foregroundStyle(.tertiary)
-            UsageBar(pct: pct ?? 0, color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct ?? 0), height: 5)
-                .frame(maxWidth: .infinity)
-            Text(pct.map { "\(Int($0.rounded()))%" } ?? "—").font(Theme.meta.monospacedDigit())
+            UsageBar(
+                pct: pct ?? 0,
+                color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct ?? 0),
+                height: 5,
+                remaining: showsRemaining
+            )
+            .frame(maxWidth: .infinity)
+            Text(pct.map { "\(FleetDisplay.shown($0, remaining: showsRemaining))%" } ?? "—")
+                .font(Theme.meta.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
     }
@@ -324,11 +339,15 @@ struct AccountRow: View {
         // Codex windows are dynamic (weekly-only since 2026-07) — read the hero
         // window so VoiceOver names a real number, never a phantom 5h zero.
         if p.provider == "anthropic" {
-            parts.append("session \(Int(p.fiveHourPct.rounded())) percent used")
+            parts.append("session \(FleetDisplay.shown(p.fiveHourPct, remaining: showsRemaining)) percent \(axisWord)")
         } else if p.isCodex, let hero = p.heroWindow {
             let name = p.fiveHour != nil ? "session" : "weekly"
-            parts.append("\(name) \(Int(hero.utilizationPct.rounded())) percent used")
+            parts.append("\(name) \(FleetDisplay.shown(hero.utilizationPct, remaining: showsRemaining)) percent \(axisWord)")
         }
         return parts.joined(separator: ", ")
     }
+
+    /// The word VoiceOver uses for the axis currently on screen. Reading "used"
+    /// while the row prints what is left would be worse than saying nothing.
+    private var axisWord: String { showsRemaining ? "left" : "used" }
 }

@@ -155,23 +155,50 @@ struct UsageBar: View {
     /// panel background; a bar sitting ON a solid brand fill (the selected
     /// provider pill) passes a translucent white instead.
     var track: Color = Theme.track
+    /// Fill by what is LEFT rather than by what is spent.
+    ///
+    /// `pct` is ALWAYS the spent percentage, whichever way this is set — which
+    /// is what keeps the colour honest. Callers pass a hue derived from spend
+    /// (`Theme.usageColor`), so in remaining mode a short bar is also a red one
+    /// and a long bar is green: length and colour say the same thing, "more is
+    /// better", instead of pointing opposite ways. The menu-bar label learned
+    /// this the hard way, where a bar filled 94% by spend sat next to the
+    /// number "6 left".
+    var remaining: Bool = false
+
+    /// Where the fill ends and where the tick sits, on the axis currently being
+    /// read. Pure, because the panel has no render test and this is the exact
+    /// pair that went wrong in the menu bar: a bar filled 94% by spend sitting
+    /// beside the number "6 left". `pct` and `threshold` are ALWAYS spent
+    /// values; this is the only place either one flips.
+    nonisolated static func geometry(
+        pct: Double,
+        threshold: Double?,
+        remaining: Bool
+    ) -> (fill: Double, tick: Double?) {
+        (
+            FleetDisplay.value(pct, remaining: remaining),
+            threshold.map { FleetDisplay.value($0, remaining: remaining) }
+        )
+    }
 
     var body: some View {
-        GeometryReader { geo in
+        let (shown, tick) = Self.geometry(pct: pct, threshold: threshold, remaining: remaining)
+        return GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(track)
                 Capsule()
                     .fill(color)
-                    .frame(width: max(0, min(1, pct / 100)) * geo.size.width)
-                if let threshold, threshold > 0, threshold < 100 {
+                    .frame(width: max(0, min(1, shown / 100)) * geo.size.width)
+                if let tick, tick > 0, tick < 100 {
                     Rectangle()
                         .fill(Color.primary.opacity(0.55))
                         .frame(width: 1.5, height: height)
-                        .offset(x: min(1, threshold / 100) * geo.size.width - 0.75)
+                        .offset(x: min(1, tick / 100) * geo.size.width - 0.75)
                 }
             }
         }
         .frame(height: height)
-        .accessibilityLabel("\(Int(pct.rounded())) percent used")
+        .accessibilityLabel("\(FleetDisplay.shown(pct, remaining: remaining)) percent \(remaining ? "left" : "used")")
     }
 }
