@@ -140,41 +140,32 @@ struct PanelView: View {
             ActionRow(icon: "arrow.clockwise", title: "Refresh usage") { model.refresh() }
                 .disabled(dead)
                 .keyboardShortcut("r", modifiers: [])
-            // FLEET-1 menu-bar knobs. They live beside "Start at login" because
-            // that is where the app's own (not an account's) preferences are,
-            // and both change what the MENU BAR shows rather than this panel.
-            PanelSwitchToggle(isOn: $fleetShowsDisarmed) {
-                HStack(spacing: 10) {
-                    Image(systemName: "bolt.slash").frame(width: 19)
-                    Text("Menu bar shows disarmed mark"); Spacer()
+            // The display preferences, two to a row. They were four full-width
+            // switch rows whose labels all began "Menu bar shows…", which is
+            // one sentence with the last word changed — long to read and hard
+            // to tell apart (AX, 2026-09-14). The copy and the order live in
+            // `PanelDisplayOption`, so they can be read as a set.
+            Text("DISPLAY")
+                .font(Theme.sectionLabel).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 1)
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2)],
+                alignment: .leading,
+                spacing: 1
+            ) {
+                ForEach(PanelDisplayOption.allCases) { option in
+                    PanelSwitchToggle(isOn: binding(for: option)) {
+                        HStack(spacing: 6) {
+                            Image(systemName: option.symbol).frame(width: 16)
+                            Text(option.label).font(Theme.sub).lineLimit(1)
+                            Spacer(minLength: 2)
+                        }
+                    }
+                    .padding(.vertical, 6).padding(.horizontal, 8)
+                    .help(option.help)
                 }
             }
-            .padding(.vertical, 6).padding(.horizontal, 10)
-            .help("Mark the menu bar when no chain will rotate. Off hides it — the chain stays disarmed either way.")
-            PanelSwitchToggle(isOn: $fleetShowsActiveOnly) {
-                HStack(spacing: 10) {
-                    Image(systemName: "person.crop.circle").frame(width: 19)
-                    Text("Menu bar shows active account"); Spacer()
-                }
-            }
-            .padding(.vertical, 6).padding(.horizontal, 10)
-            .help("Read each harness's active account instead of averaging its whole pool.")
-            PanelSwitchToggle(isOn: $fleetShowsRemaining) {
-                HStack(spacing: 10) {
-                    Image(systemName: "arrow.left.arrow.right.circle").frame(width: 19)
-                    Text("Menu bar shows remaining"); Spacer()
-                }
-            }
-            .padding(.vertical, 6).padding(.horizontal, 10)
-            .help("Show what is LEFT of the weekly window instead of what is spent.")
-            PanelSwitchToggle(isOn: $fleetShowsBars) {
-                HStack(spacing: 10) {
-                    Image(systemName: "chart.bar").frame(width: 19)
-                    Text("Menu bar shows bars"); Spacer()
-                }
-            }
-            .padding(.vertical, 6).padding(.horizontal, 10)
-            .help("Draw a small usage bar beside each harness figure in the menu bar.")
             if LoginItem.isAvailable {
                 PanelSwitchToggle(isOn: Binding(get: { LoginItem.isEnabled }, set: { LoginItem.setEnabled($0) })) {
                     HStack(spacing: 10) {
@@ -189,6 +180,17 @@ struct PanelView: View {
                 .help("The clauth daemon keeps running — auto-switch continues.")
         }
         .padding(.horizontal, 10)
+    }
+
+    /// `@AppStorage` needs a compile-time key per property, so the four
+    /// preferences stay declared above and the list maps onto them here.
+    private func binding(for option: PanelDisplayOption) -> Binding<Bool> {
+        switch option {
+        case .disarmed: return $fleetShowsDisarmed
+        case .activeOnly: return $fleetShowsActiveOnly
+        case .remaining: return $fleetShowsRemaining
+        case .bars: return $fleetShowsBars
+        }
     }
 
     // MARK: - Armed-member removal confirm (§7)

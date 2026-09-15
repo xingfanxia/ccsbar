@@ -113,11 +113,12 @@ accounts of their **weekly** window (the 5h one stands in only where there is no
 weekly). The week is what a decision to start something long turns on, and it is
 the only window codex publishes, so both harnesses read on one axis. Scoped
 per-model windows, broken logins and lapsed plans are left out, and a harness with
-nothing countable draws no figure rather than 0%. Four switches in the panel: read
-each harness's **active account** instead of its pool, count what is **LEFT**
-instead of what is spent, draw a **bar** beside each number (those three off by
-default), and show the **disarmed mark** — a `bolt.slash` after the figures when
-no chain will rotate — which is on by default and can be switched off when that
+nothing countable draws no figure rather than 0%. Four switches in the panel's
+DISPLAY block, two to a row: read each harness's **active account** instead of its
+pool, **count what is left** instead of what is spent (this one governs the account
+rows too, bar and number together), draw a **bar** beside each number (those three
+off by default), and show the **disarmed warning** — a `bolt.slash` after the
+figures when no chain will rotate — which is on by default and can be switched off when that
 state is one you have decided to live with.
 Exceptional states replace the pool entirely with the state's own glyph and text:
 a switch-in-flight ellipsis, a rotation glyph, a `bolt.slash` when auto-switch is
@@ -151,10 +152,14 @@ chain rail → actions**:
   spent" pill with a muted name when a window is at its cap, a last-resort flag,
   in-use, login-expired). Third-party api-key accounts show an availability dot instead
   of %-bars.
-- the **detail card** for the inspected account — its three windows with reset times,
-  a forecast-driven chain-membership line, and **the one switch surface**: a static
-  "Active account" for the current one, a **"Log in again"** browser-reauth verb for an
-  account whose OAuth login dropped (see below), or a **Switch** verb. If the active
+- the **detail card** for the inspected account — only what its row cannot say: the
+  session-token horizon, a live isolated session, a third-party host, a
+  forecast-driven chain-membership line, and **the one switch surface**: a
+  **"Log in again"** browser-reauth verb for an account whose OAuth login dropped
+  (see below), or a **Switch** verb. An active, healthy account gets no verb, and when
+  it has nothing unique to report the card renders nothing at all — the panel opens
+  with the active account inspected, so a full card there was a second rendering of
+  the row already highlighted above it. If the active
   account has a live Claude session, the first click **arms** ("Confirm — live session
   on …") and a second within 5s fires; with the daemon down it becomes "Switch via
   CLI", confirmed by exit code.
@@ -220,10 +225,11 @@ Implemented (the CBAR-4 "Preflight" redesign):
   in-track threshold tick, half-width 7d / Fable bars, and badges ("⚡ watching" when
   armed / "spent" pill + muted name when a window is capped / last-resort flag / in-use /
   login-expired). Third-party accounts show an availability dot.
-- **Detail card + one switch verb** — the inspected account's three windows, a
-  forecast-driven chain line, and a deliberate Switch with the **live-session
-  arm-confirm** guard and a **CLI fallback** (confirmed by exit code) when the daemon
-  is down.
+- **Detail card + one switch verb** — what the account's row cannot say (token
+  horizon, live session, third-party host, a forecast-driven chain line) and a
+  deliberate Switch with the **live-session arm-confirm** guard and a **CLI
+  fallback** (confirmed by exit code) when the daemon is down. Nothing the row
+  already shows, and nothing at all for an active account with no verb to offer.
 - **Dropped-login recovery (AUTH-3)** — an `auth_broken` account (the daemon flags it
   when a token refresh hits a dead refresh token) gets a **"Log in again"** browser-reauth
   verb instead of a dead-end hint; it spawns `clauth login <name>` (works daemon-up or
