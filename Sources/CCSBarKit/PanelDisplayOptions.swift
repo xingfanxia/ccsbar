@@ -57,10 +57,17 @@ enum PanelDisplayOption: String, CaseIterable, Identifiable {
     /// "Active account only" truncated to "Active account o…", and a label that
     /// loses its last word is worse than one that never had it. The tooltip
     /// carries the rest.
+    ///
+    /// "Active, not pool" names the OFF state inside the label. A switch can
+    /// only ever name one of its two states, and this preference's off-state is
+    /// a real thing with a real name — the pool average — that nothing in the
+    /// app had ever said out loud. Naming it costs four characters; the obvious
+    /// alternative, a segmented Pool | Active picker, costs a full-width row in
+    /// the one region whose complaint is height.
     var label: String {
         switch self {
         case .disarmed: return "Disarmed warning"
-        case .activeOnly: return "Active account"
+        case .activeOnly: return "Active, not pool"
         case .remaining: return "Count what's left"
         case .bars: return "Usage bars"
         }
