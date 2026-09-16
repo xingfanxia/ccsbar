@@ -164,7 +164,12 @@ struct UsageBar: View {
     /// better", instead of pointing opposite ways. The menu-bar label learned
     /// this the hard way, where a bar filled 94% by spend sat next to the
     /// number "6 left".
-    var remaining: Bool = false
+    /// No default, deliberately. A bar carries no number of its own, so a bar
+    /// on the wrong axis is the one surface that cannot self-correct — and the
+    /// tab underline sat above the account rows filling by spend while they
+    /// counted down, because a defaulted parameter let a new call site skip the
+    /// decision silently. Every caller states the axis or does not compile.
+    var remaining: Bool
 
     /// Where the fill ends and where the tick sits, on the axis currently being
     /// read. Pure, because the panel has no render test and this is the exact
@@ -199,6 +204,9 @@ struct UsageBar: View {
             }
         }
         .frame(height: height)
-        .accessibilityLabel("\(FleetDisplay.shown(pct, remaining: remaining)) percent \(remaining ? "left" : "used")")
+        .accessibilityLabel(
+            "\(FleetDisplay.shown(pct, remaining: remaining))"
+                + " percent \(FleetDisplay.axisWord(remaining: remaining))"
+        )
     }
 }

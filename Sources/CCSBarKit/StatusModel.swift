@@ -442,9 +442,20 @@ final class StatusModel: ObservableObject {
     /// The strip's second line under the forecast: "now 62% · live · updated 3s ago"
     /// (design §2 STATE 1). The now% is the active account's 5h; the freshness word
     /// comes off the same generated_at age the liveness ladder uses.
-    var livenessStamp: String {
+    ///
+    /// This figure stays on the SPENT axis whichever way the panel is counting,
+    /// because the sentence above it quotes the rotation threshold ("would
+    /// switch to account-2 at 95%") and a threshold is a spend value — flipping
+    /// the figure alone would invite a 58-vs-95 comparison that is wrong by 42
+    /// points. So in remaining mode it is the one figure disagreeing with every
+    /// row below it, and it says so. `remaining` is passed in rather than read:
+    /// `@AppStorage` is a `DynamicProperty` and publishes nothing from inside an
+    /// `ObservableObject` (the trap `StatusModel.tab` documents).
+    func livenessStamp(remaining: Bool) -> String {
         var parts: [String] = []
-        if let pct = active?.fiveHour?.utilizationPct { parts.append("now \(Int(pct.rounded()))%") }
+        if let pct = active?.fiveHour?.utilizationPct {
+            parts.append("now \(Int(pct.rounded()))%" + (remaining ? " used" : ""))
+        }
         parts.append(freshnessWord)
         if let age = generatedAtAge { parts.append("updated \(Self.ago(Int(age)))") }
         return parts.joined(separator: " · ")

@@ -124,8 +124,13 @@ private struct HarnessCard: View {
                 remaining: showsRemaining
             )
             .frame(maxWidth: .infinity)
-            Text(pct.map { "\(FleetDisplay.shown($0, remaining: showsRemaining))%" } ?? "—")
-                .font(Theme.fine).monospacedDigit().foregroundStyle(.secondary)
+            UsageFigure(
+                pct: pct,
+                remaining: showsRemaining,
+                font: Theme.fine.monospacedDigit(),
+                color: .secondary
+            )
+            .fixedSize()
         }
     }
 
@@ -134,7 +139,10 @@ private struct HarnessCard: View {
         if let active {
             parts.append("active \(active.name)")
             if let email = active.accountEmail { parts.append(email) }
-            parts.append("session \(Int(active.fiveHourPct.rounded())) percent used")
+            parts.append(
+                "session \(FleetDisplay.shown(active.fiveHourPct, remaining: showsRemaining))"
+                    + " percent \(FleetDisplay.axisWord(remaining: showsRemaining))"
+            )
         } else {
             parts.append(count > 0 ? "no active account" : "no accounts yet")
         }

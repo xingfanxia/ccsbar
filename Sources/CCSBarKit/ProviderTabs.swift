@@ -70,6 +70,12 @@ enum ProviderTab: String, CaseIterable, Sendable {
 /// entering the tab. Overview carries no underline (nothing to summarize into 3pt).
 struct ProviderTabBar: View {
     @ObservedObject var model: StatusModel
+    /// The underline is a bar with no number beside it, so it is the one
+    /// surface that cannot self-correct a wrong axis — and it sat directly
+    /// above rows reading the other way, filling by spend while they counted
+    /// down. Same trap the menu-bar label fell into ("a bar filled 94% by
+    /// spend beside the number 6 left"), one view further out.
+    @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -127,7 +133,8 @@ struct ProviderTabBar: View {
                 ? .white
                 : (pct.map { Theme.usageColor($0, threshold: active?.fallback?.threshold ?? 100) } ?? .clear),
             height: 4,
-            track: selected ? Color.white.opacity(0.3) : Theme.track
+            track: selected ? Color.white.opacity(0.3) : Theme.track,
+            remaining: showsRemaining
         )
         .frame(width: 67)
         .opacity(pct == nil ? 0 : 1)

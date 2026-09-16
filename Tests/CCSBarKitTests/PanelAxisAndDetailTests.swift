@@ -6,6 +6,78 @@ import XCTest
 /// and the function is tested. There is no render test for the panel, so a
 /// decision left inside a `body` is a decision nothing can check.
 final class PanelAxisAndDetailTests: XCTestCase {
+    // MARK: - A flipped figure says so
+
+    func testOnlyTheFlippedAxisIsWorded() {
+        // The defect this closes: "7d 0%" is a true reading of an exhausted
+        // account in remaining mode and of an untouched one in spent mode, and
+        // the bar cannot separate them — at both ends of the axis the two modes
+        // draw the same shape (AX, 2026-09-16, three codex rows at 0%).
+        XCTAssertEqual(UsageFigure.parts(pct: 100, remaining: true).figure, "0%")
+        XCTAssertEqual(UsageFigure.parts(pct: 100, remaining: true).suffix, "left")
+        XCTAssertNil(
+            UsageFigure.parts(pct: 0, remaining: false).suffix,
+            "the unmarked number is the convention every other surface reports on; wording it too would print chrome over the default"
+        )
+        XCTAssertEqual(UsageFigure.parts(pct: 0, remaining: false).figure, "0%")
+    }
+
+    func testAGroupStatesItsAxisOnceAndTheMinisInheritIt() {
+        // Three "left"s in one account row read as noise, and the extra text
+        // column ate the flexible bars beside it — a 7d bar and a Fable bar
+        // stopped being the same length for the same number.
+        let hero = UsageFigure(pct: 42, remaining: true)
+        let mini = UsageFigure(pct: 42, remaining: true, wordsAxis: false)
+        XCTAssertTrue(hero.wordsAxis)
+        XCTAssertFalse(mini.wordsAxis)
+        XCTAssertEqual(
+            UsageFigure.parts(pct: 42, remaining: true).suffix, "left",
+            "the leading figure of a group still carries the word"
+        )
+    }
+
+    @MainActor
+    func testTheForecastFigureNamesItsAxisWhenTheRowsDisagree() {
+        // It stays on the spent axis because the sentence above it quotes the
+        // rotation threshold ("would switch at 95%"), and a threshold is a
+        // spend value — so in remaining mode it is the odd figure out.
+        let status = try! JSONDecoder().decode(DaemonStatus.self, from: Data("""
+        {"schema":1,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"a",
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":[],
+         "profiles":[{"name":"a","active":true,"tier":"Max 20x",
+                      "windows":[{"label":"5h","utilization_pct":42.0}]}]}
+        """.utf8))
+        let model = StatusModel(preview: status, liveness: .ok)
+        XCTAssertTrue(model.livenessStamp(remaining: false).contains("now 42%"))
+        XCTAssertFalse(
+            model.livenessStamp(remaining: false).contains("used"),
+            "the default axis needs no word — every figure on the panel agrees with it"
+        )
+        XCTAssertTrue(
+            model.livenessStamp(remaining: true).contains("now 42% used"),
+            "it stays on the spent axis beside the threshold, so it has to say so once the rows flip"
+        )
+    }
+
+    func testAMissingReadingIsADashAndNeverAZero() {
+        XCTAssertEqual(UsageFigure.parts(pct: nil, remaining: true).figure, "—")
+        XCTAssertNil(
+            UsageFigure.parts(pct: nil, remaining: true).suffix,
+            "'— left' reads as a broken sentence; a missing window has no axis"
+        )
+    }
+
+    func testTheWordedFigureAndTheSpokenOneAgree() {
+        // One spelling of the axis word, or the Overview card tells VoiceOver
+        // "percent used" while showing what is left — which it did.
+        XCTAssertEqual(FleetDisplay.axisWord(remaining: true), "left")
+        XCTAssertEqual(FleetDisplay.axisWord(remaining: false), "used")
+        XCTAssertEqual(
+            UsageFigure.parts(pct: 42, remaining: true).suffix,
+            FleetDisplay.axisWord(remaining: true)
+        )
+    }
+
     // MARK: - The account rows read the same axis as the menu bar
 
     func testTheBarFillsOnTheAxisTheNumberBesideItIsReading() {

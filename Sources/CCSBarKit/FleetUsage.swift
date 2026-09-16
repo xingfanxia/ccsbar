@@ -377,6 +377,15 @@ enum FleetDisplay {
     nonisolated static func shown(_ pct: Double, remaining: Bool) -> Int {
         Int(value(pct, remaining: remaining).rounded())
     }
+
+    /// What a figure on this axis is a figure OF. One spelling for the whole
+    /// app: the panel prints it beside the remaining-mode numbers, and every
+    /// bar and row speaks it to VoiceOver. It was written out at three call
+    /// sites before, which is how the Overview card came to tell a screen
+    /// reader "percent used" while showing what was left.
+    nonisolated static func axisWord(remaining: Bool) -> String {
+        remaining ? "left" : "used"
+    }
 }
 
 /// FLEET-1: one pool's bar, drawn as a template NSImage. `FleetLabelImage`

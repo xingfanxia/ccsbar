@@ -9,6 +9,9 @@ import SwiftUI
 /// wording).
 struct StatusStrip: View {
     @ObservedObject var model: StatusModel
+    /// The forecast figure is quoted beside the rotation threshold, so it stays
+    /// on the spent axis and names it when the rest of the panel disagrees.
+    @AppStorage(FleetDisplay.remainingKey) private var showsRemaining = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -20,7 +23,7 @@ struct StatusStrip: View {
             // carried a second copy; that card now only says what the account
             // row cannot, and this is not an account fact.
             if !isDead {
-                Text(model.livenessStamp).font(Theme.sub).foregroundStyle(.secondary)
+                Text(model.livenessStamp(remaining: showsRemaining)).font(Theme.sub).foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)

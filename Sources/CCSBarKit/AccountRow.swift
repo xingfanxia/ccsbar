@@ -215,7 +215,7 @@ struct AccountRow: View {
             )
             HStack {
                 Text(label).font(Theme.fine).foregroundStyle(.tertiary)
-                Text("\(FleetDisplay.shown(pct, remaining: showsRemaining))%").font(Theme.figure)
+                UsageFigure(pct: pct, remaining: showsRemaining)
                 Spacer()
                 Text(stamp(w?.resetsAt)).font(Theme.meta).foregroundStyle(.secondary)
             }
@@ -280,9 +280,14 @@ struct AccountRow: View {
                 remaining: showsRemaining
             )
             .frame(maxWidth: .infinity)
-            Text(pct.map { "\(FleetDisplay.shown($0, remaining: showsRemaining))%" } ?? "—")
-                .font(Theme.meta.monospacedDigit())
-                .foregroundStyle(.secondary)
+            UsageFigure(
+                pct: pct,
+                remaining: showsRemaining,
+                font: Theme.meta.monospacedDigit(),
+                color: .secondary,
+                wordsAxis: false
+            )
+            .fixedSize()
         }
     }
 
@@ -349,5 +354,5 @@ struct AccountRow: View {
 
     /// The word VoiceOver uses for the axis currently on screen. Reading "used"
     /// while the row prints what is left would be worse than saying nothing.
-    private var axisWord: String { showsRemaining ? "left" : "used" }
+    private var axisWord: String { FleetDisplay.axisWord(remaining: showsRemaining) }
 }
