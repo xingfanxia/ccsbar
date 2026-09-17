@@ -136,6 +136,36 @@ enum ChainEdit {
     /// MEANS so "95%" isn't read as "switch TO this at 95%".
     static let thresholdLegend = "Auto-switch LEAVES this account at this 5h usage."
 
+    // MARK: - Codex members have no per-member judgment
+
+    /// The codex chain walks every member on ONE number — the chain-wide weekly
+    /// line — because `wham/usage` publishes only a weekly window and the daemon's
+    /// codex walk hands each member the same default. clauth REFUSES `set_threshold`,
+    /// `set_last_resort`, `set_member_weekly` and the usage gates on a codex member
+    /// for exactly that reason: a stored per-member number would be read by nothing.
+    /// So these surfaces show the governing line instead of offering a dead control.
+    static let codexMemberLegend = "The codex chain leaves every account on one shared weekly line — there is no per-account setting here."
+
+    /// Whether to OFFER the four per-member knobs on a member's row. False for a
+    /// codex member, where every one of them is a socket command the daemon refuses
+    /// (`fallback_config::refuse_codex_member_knob`). Both surfaces branch on this
+    /// rather than on `isCodex` directly, so the rule has ONE spelling and the day
+    /// upstream gives the codex walk per-member judgment, one edit re-arms them.
+    static func offersPerMemberKnobs(isCodex: Bool) -> Bool { !isCodex }
+
+    /// The inert value chip that stands where a claude member's threshold menu is:
+    /// the weekly line this member actually walks on, named by its axis so it is not
+    /// mistaken for the 5h number beside it on a claude row.
+    static func codexMemberLineLabel(_ weeklyLine: Double) -> String {
+        "7d @ \(weeklyLabel(weeklyLine))"
+    }
+
+    /// The chain rail's per-chip suffix. A claude chip reads "@95" (5h implied by the
+    /// rail legend); a codex chip names the axis, because the number is a weekly one.
+    static func chipThresholdLabel(_ threshold: Double, isCodex: Bool, weeklyLine: Double) -> String {
+        isCodex ? "7d@\(Int(weeklyLine))" : "@\(Int(threshold))"
+    }
+
     /// The per-member last-resort toggle label (§7). `last_resort` is an explicit,
     /// threshold-independent flag (clauth `set_last_resort`): the walk parks on this
     /// member once nothing else has headroom, even while it's over its own limit.

@@ -51,6 +51,13 @@ struct DaemonStatus: Codable, Sendable {
     /// in BOTH walk directions (clauth `weekly_switch_threshold`, default 98).
     /// Additive; `nil` on older daemons → treat as 98 (`ChainEdit.defaultWeeklyLine`).
     let weeklySwitchThreshold: Double?
+    /// The CODEX chain's own weekly line (clauth `codex_weekly_switch_threshold`).
+    /// The two chains carry independent values in independent files — editing the
+    /// line here writes both, but `codex-profiles.toml` is hand-editable, so the
+    /// claude number is a guess about codex, not a reading of it. `nil` on a daemon
+    /// that predates the key → fall back to the claude line, which is what that
+    /// daemon's own edits kept it equal to. Read it through `weeklyLine(for:)`.
+    let codexWeeklySwitchThreshold: Double?
     /// The codex active slot's profile name (INT-2) — independent of `activeProfile`
     /// (the claude slot). A codex profile and a claude profile can BOTH be active at
     /// once (per-slot truth), so this is a SECOND active pointer, not a replacement.
@@ -77,6 +84,7 @@ struct DaemonStatus: Codable, Sendable {
         case forecast
         case burnAware = "burn_aware"
         case weeklySwitchThreshold = "weekly_switch_threshold"
+        case codexWeeklySwitchThreshold = "codex_weekly_switch_threshold"
         case activeCodexProfile = "active_codex_profile"
         case codexFallbackChain = "codex_fallback_chain"
     }
@@ -99,6 +107,8 @@ struct DaemonStatus: Codable, Sendable {
         forecast = try c.decodeIfPresent(DaemonForecast.self, forKey: .forecast)
         burnAware = try c.decodeIfPresent(Bool.self, forKey: .burnAware)
         weeklySwitchThreshold = try c.decodeIfPresent(Double.self, forKey: .weeklySwitchThreshold)
+        codexWeeklySwitchThreshold = try c.decodeIfPresent(
+            Double.self, forKey: .codexWeeklySwitchThreshold)
         activeCodexProfile = try c.decodeIfPresent(String.self, forKey: .activeCodexProfile)
         codexFallbackChain = try c.decodeIfPresent([String].self, forKey: .codexFallbackChain) ?? []
     }
@@ -125,6 +135,16 @@ extension DaemonStatus {
     /// joins the codex chain), so membership never overlaps.
     func chain(for harness: Harness) -> [String] {
         harness == .codex ? codexFallbackChain : fallbackChain
+    }
+
+    /// The weekly (7d) line the harness's chain actually walks on. Codex reads its
+    /// own published value; a daemon too old to publish one has kept the two equal
+    /// through its own edits, so the claude line is the honest fallback there.
+    func weeklyLine(for harness: Harness) -> Double {
+        let published = harness == .codex
+            ? (codexWeeklySwitchThreshold ?? weeklySwitchThreshold)
+            : weeklySwitchThreshold
+        return published ?? ChainEdit.defaultWeeklyLine
     }
 
     /// Membership across BOTH harness chains — the settle-ladder predicate for

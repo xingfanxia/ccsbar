@@ -115,101 +115,16 @@ struct AccountContextMenu: View {
     @ViewBuilder private var chainItems: some View {
         let reachable = model.daemonReachable
         if let fb = p.fallback {
-            Menu("Leave chain at") {
-                ForEach(ChainEdit.thresholdPresets, id: \.self) { v in
-                    Button {
-                        model.setThreshold(p.name, v)
-                    } label: {
-                        // A checkmark on the current threshold (NSMenu shows it inline).
-                        if Int(fb.threshold) == v {
-                            Label(ChainEdit.thresholdLabel(v), systemImage: "checkmark")
-                        } else {
-                            Text(ChainEdit.thresholdLabel(v))
-                        }
-                    }
-                }
-                Divider()
-                // Free-typed percent — the field lives in the Configure
-                // disclosure, so this arms it and opens the panel there.
-                Button(ChainEdit.customLabel) {
-                    model.beginThresholdEdit(
-                        .fiveHour(p.name), current: "\(Int(fb.threshold))")
-                }
-            }
-            .disabled(!reachable)
-
-            // Toggle the exclusive last-resort flag (clauth set_last_resort) — a
-            // checkmark shows the current state. Independent of the threshold above.
-            Button {
-                model.setLastResort(p.name, !fb.lastResort)
-            } label: {
-                if fb.lastResort {
-                    Label(ChainEdit.lastResortLabel, systemImage: "checkmark")
-                } else {
-                    Text(ChainEdit.lastResortLabel)
-                }
-            }
-            .disabled(!reachable)
-
-            // WKO: this member's own weekly line (clauth set_member_weekly).
-            // The chain-wide `Weekly limit` (Configure disclosure) stays the
-            // default; an override replaces it for this account only. Claude
-            // members only — codex members have no weekly-line judgment.
-            if !p.isCodex {
-                Menu(ChainEdit.memberWeeklyMenuLabel) {
-                    Button {
-                        model.setMemberWeekly(p.name, nil)
-                    } label: {
-                        let follow = ChainEdit.followChainDefaultLabel(
-                            status.weeklySwitchThreshold ?? ChainEdit.defaultWeeklyLine)
-                        if fb.weeklyThreshold == nil {
-                            Label(follow, systemImage: "checkmark")
-                        } else {
-                            Text(follow)
-                        }
-                    }
-                    Divider()
-                    ForEach(ChainEdit.weeklyPresets, id: \.self) { v in
-                        Button {
-                            model.setMemberWeekly(p.name, v)
-                        } label: {
-                            if fb.weeklyThreshold == v {
-                                Label(ChainEdit.weeklyLabel(v), systemImage: "checkmark")
-                            } else {
-                                Text(ChainEdit.weeklyLabel(v))
-                            }
-                        }
-                    }
-                    Divider()
-                    Button(ChainEdit.customLabel) {
-                        model.beginThresholdEdit(
-                            .memberWeekly(p.name),
-                            current: fb.weeklyThreshold.map { "\(Int($0))" } ?? "")
-                    }
-                }
-                .disabled(!reachable)
-
-                // SCW-2 per-account usage gates — checkmark = the check applies.
-                Button {
-                    model.setCheckWeekly(p.name, !fb.checkWeekly)
-                } label: {
-                    if fb.checkWeekly {
-                        Label(ChainEdit.weeklyGateLabel, systemImage: "checkmark")
-                    } else {
-                        Text(ChainEdit.weeklyGateLabel)
-                    }
-                }
-                .disabled(!reachable)
-                Button {
-                    model.setCheckScoped(p.name, !fb.checkScoped)
-                } label: {
-                    if fb.checkScoped {
-                        Label(ChainEdit.scopedGateLabel, systemImage: "checkmark")
-                    } else {
-                        Text(ChainEdit.scopedGateLabel)
-                    }
-                }
-                .disabled(!reachable)
+            // A codex member has no per-member judgment to offer: clauth REFUSES
+            // set_threshold / set_last_resort / set_member_weekly and the gates on
+            // one, because its walk hands every member the chain-wide weekly line.
+            // So the menu STATES that line instead of offering four controls the
+            // daemon would reject. Order and membership stay editable below — those
+            // are the codex chain's real knobs.
+            if ChainEdit.offersPerMemberKnobs(isCodex: p.isCodex) {
+                claudeMemberKnobs(fb, reachable: reachable)
+            } else {
+                Text(ChainEdit.codexMemberLineLabel(status.weeklyLine(for: .codex)))
             }
 
             Button("Move up") { model.fallbackMove(p.name, up: true) }
@@ -226,5 +141,103 @@ struct AccountContextMenu: View {
             Button("Add to chain") { model.fallbackAdd(p.name) }
                 .disabled(!reachable)
         }
+    }
+
+    /// The four per-member knobs, claude-only by construction — each one maps to a
+    /// clauth socket command that refuses a codex member with a reason.
+    @ViewBuilder
+    private func claudeMemberKnobs(_ fb: FallbackInfo, reachable: Bool) -> some View {
+        Menu("Leave chain at") {
+            ForEach(ChainEdit.thresholdPresets, id: \.self) { v in
+                Button {
+                    model.setThreshold(p.name, v)
+                } label: {
+                    // A checkmark on the current threshold (NSMenu shows it inline).
+                    if Int(fb.threshold) == v {
+                        Label(ChainEdit.thresholdLabel(v), systemImage: "checkmark")
+                    } else {
+                        Text(ChainEdit.thresholdLabel(v))
+                    }
+                }
+            }
+            Divider()
+            // Free-typed percent — the field lives in the Configure disclosure,
+            // so this arms it and opens the panel there.
+            Button(ChainEdit.customLabel) {
+                model.beginThresholdEdit(.fiveHour(p.name), current: "\(Int(fb.threshold))")
+            }
+        }
+        .disabled(!reachable)
+
+        // Toggle the exclusive last-resort flag (clauth set_last_resort) — a
+        // checkmark shows the current state. Independent of the threshold above.
+        Button {
+            model.setLastResort(p.name, !fb.lastResort)
+        } label: {
+            if fb.lastResort {
+                Label(ChainEdit.lastResortLabel, systemImage: "checkmark")
+            } else {
+                Text(ChainEdit.lastResortLabel)
+            }
+        }
+        .disabled(!reachable)
+
+        // WKO: this member's own weekly line (clauth set_member_weekly). The
+        // chain-wide `Weekly limit` (Configure disclosure) stays the default; an
+        // override replaces it for this account only.
+        Menu(ChainEdit.memberWeeklyMenuLabel) {
+            Button {
+                model.setMemberWeekly(p.name, nil)
+            } label: {
+                let follow = ChainEdit.followChainDefaultLabel(
+                    status.weeklyLine(for: .claude))
+                if fb.weeklyThreshold == nil {
+                    Label(follow, systemImage: "checkmark")
+                } else {
+                    Text(follow)
+                }
+            }
+            Divider()
+            ForEach(ChainEdit.weeklyPresets, id: \.self) { v in
+                Button {
+                    model.setMemberWeekly(p.name, v)
+                } label: {
+                    if fb.weeklyThreshold == v {
+                        Label(ChainEdit.weeklyLabel(v), systemImage: "checkmark")
+                    } else {
+                        Text(ChainEdit.weeklyLabel(v))
+                    }
+                }
+            }
+            Divider()
+            Button(ChainEdit.customLabel) {
+                model.beginThresholdEdit(
+                    .memberWeekly(p.name),
+                    current: fb.weeklyThreshold.map { "\(Int($0))" } ?? "")
+            }
+        }
+        .disabled(!reachable)
+
+        // SCW-2 per-account usage gates — checkmark = the check applies.
+        Button {
+            model.setCheckWeekly(p.name, !fb.checkWeekly)
+        } label: {
+            if fb.checkWeekly {
+                Label(ChainEdit.weeklyGateLabel, systemImage: "checkmark")
+            } else {
+                Text(ChainEdit.weeklyGateLabel)
+            }
+        }
+        .disabled(!reachable)
+        Button {
+            model.setCheckScoped(p.name, !fb.checkScoped)
+        } label: {
+            if fb.checkScoped {
+                Label(ChainEdit.scopedGateLabel, systemImage: "checkmark")
+            } else {
+                Text(ChainEdit.scopedGateLabel)
+            }
+        }
+        .disabled(!reachable)
     }
 }

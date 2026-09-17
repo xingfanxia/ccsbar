@@ -246,6 +246,7 @@
     },
     "last_error": null,
     "weekly_switch_threshold": 98.0,
+    "codex_weekly_switch_threshold": 90.0,
     "active_codex_profile": "codex-1",
     "codex_fallback_chain": [
         "codex-1",

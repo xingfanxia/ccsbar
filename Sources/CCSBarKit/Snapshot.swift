@@ -288,6 +288,9 @@ enum Snapshot {
             case "codex-empty": return (fixtureWithoutCodex(from: data) ?? mock, .ok, nil, .idle, .codex)
             case "codex-limited": return (fixtureCodexLimited(from: data) ?? mock, .ok, nil, .idle, .codex)
             case "add-codex": return (mock, .ok, nil, .idle, .codex)
+            // The codex chain editor: its rows carry no per-member threshold menu and
+            // no last-resort flag, because clauth refuses both on a codex member.
+            case "codex-config": return (mock, .ok, nil, .idle, .codex)
             // default / healthy: inspected=nil resolves to the ACTIVE account (the real
             // first-open path — StatusModel.inspected falls back to active), so this
             // renders the one card that carries the "pick another account above to
@@ -305,7 +308,7 @@ enum Snapshot {
         let model = StatusModel(
             preview: status, liveness: liveness, inspected: inspected, phase: phase,
             tokens: tokens, tab: tab)
-        if variant == "config" { model.showConfig = true }
+        if variant == "config" || variant == "codex-config" { model.showConfig = true }
         // Panel-level armed-member removal confirm (§7): arm it on the first armed
         // chain member so the banner renders.
         if variant == "remove-confirm" {

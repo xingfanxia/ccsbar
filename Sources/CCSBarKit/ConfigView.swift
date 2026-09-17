@@ -86,7 +86,14 @@ struct ConfigView: View {
                 .frame(width: 101, alignment: .leading)
 
             if let fb = p.fallback {
-                if model.thresholdEdit == .fiveHour(p.name) {
+                // A codex member carries no per-member threshold and no last-resort
+                // mark — clauth refuses both on one, because the codex walk gives
+                // every member the chain-wide weekly line. The chip STATES that line
+                // where the claude menu sits, so the row reads as governed rather
+                // than as missing its controls.
+                if !ChainEdit.offersPerMemberKnobs(isCodex: p.isCodex) {
+                    inertLineChip(status.weeklyLine(for: .codex))
+                } else if model.thresholdEdit == .fiveHour(p.name) {
                     customThresholdField(
                         valid: ChainEdit.parseFiveHourThreshold(model.thresholdDraft) != nil,
                         help: "0–100, whole percent"
@@ -104,7 +111,9 @@ struct ConfigView: View {
 
                 Spacer()
 
-                lastResortToggle(p, on: fb.lastResort)
+                if ChainEdit.offersPerMemberKnobs(isCodex: p.isCodex) {
+                    lastResortToggle(p, on: fb.lastResort)
+                }
                 moveButton(p, up: true, disabled: fb.position <= 1)
                 moveButton(p, up: false, disabled: fb.position >= chain.count)
                 glyphButton("minus.circle", tint: Theme.danger, help: "Remove from chain") {
@@ -150,10 +159,26 @@ struct ConfigView: View {
         .help(ChainEdit.thresholdLegend)
     }
 
+    /// The codex stand-in for `thresholdMenu`: the same capsule geometry so rows stay
+    /// aligned across harnesses, but flat and unclickable — no chevron, no menu, a
+    /// fainter ground. It reads as a value the chain imposes, not one set here.
+    private func inertLineChip(_ weeklyLine: Double) -> some View {
+        Text(ChainEdit.codexMemberLineLabel(weeklyLine))
+            .font(Theme.body).monospacedDigit().foregroundStyle(.secondary)
+            .padding(.vertical, 4).padding(.horizontal, 11)
+            .frame(minHeight: rowHeight - 6)
+            .background(Color.primary.opacity(0.035), in: Capsule())
+            .help(ChainEdit.codexMemberLegend)
+    }
+
     private var legends: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(ChainEdit.thresholdLegend)
-            Text(ChainEdit.lastResortLegend)
+            if harness == .codex {
+                Text(ChainEdit.codexMemberLegend)
+            } else {
+                Text(ChainEdit.thresholdLegend)
+                Text(ChainEdit.lastResortLegend)
+            }
         }
         .font(Theme.sub).foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)

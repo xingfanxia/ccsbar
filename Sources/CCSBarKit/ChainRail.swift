@@ -69,12 +69,20 @@ struct ChainStrip: View {
     }
 
     private func chip(for name: String) -> some View {
-        let fb = status.profiles.first { $0.name == name }?.fallback
+        let profile = status.profiles.first { $0.name == name }
+        let fb = profile?.fallback
         let armed = fb?.armed ?? false
+        // A codex member's published `threshold` is the walk's DEFAULT constant, the
+        // same for every member — printing it bare would read as a per-member setting.
+        // Codex leaves on the chain-wide weekly line, so the chip names that axis.
+        let isCodex = profile?.isCodex ?? false
         return HStack(spacing: 5) {
             if armed { Image(systemName: "bolt.fill").font(.system(size: 11)) }
             Text(name).font(Theme.meta).fontWeight(armed ? .semibold : .regular).lineLimit(1)
-            Text("@\(Int(fb?.threshold ?? 95))")
+            Text(ChainEdit.chipThresholdLabel(
+                fb?.threshold ?? 95,
+                isCodex: isCodex,
+                weeklyLine: status.weeklyLine(for: isCodex ? .codex : .claude)))
                 .font(Theme.micro).foregroundStyle(.secondary).monospacedDigit()
         }
         .padding(.vertical, 4).padding(.horizontal, 10)

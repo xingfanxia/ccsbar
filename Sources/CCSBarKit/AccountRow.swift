@@ -52,7 +52,7 @@ struct AccountRow: View {
                 codexRows
             } else {
                 fiveHourRow
-                secondaryRow
+                secondaryRow()
             }
         }
         .padding(.vertical, 8).padding(.horizontal, 12)
@@ -227,15 +227,22 @@ struct AccountRow: View {
     /// The hero bar is the short (5h) window when present, else the weekly —
     /// labeled truthfully, so a weekly-only account shows ONE "7d" bar with its
     /// real multi-day reset instead of a phantom 5h row and a dashed 7d. The
-    /// threshold tick renders only on a real 5h hero (chain thresholds are 5h
-    /// semantics). The secondary mini-row appears only when both windows exist.
+    /// secondary mini-row appears only when both windows exist.
+    ///
+    /// The tick marks where auto-switch LEAVES, so on a codex row it belongs on the
+    /// weekly bar and nowhere else: the codex walk rotates on the chain-wide weekly
+    /// line, and the per-member `threshold` the daemon publishes for a codex member
+    /// is the walk's default constant — identical for every member and read by
+    /// nothing. Drawing it on a 5h bar would mark a line codex never acts on.
     @ViewBuilder private var codexRows: some View {
         if let hero = p.heroWindow {
             let heroIsFiveHour = p.fiveHour != nil
+            // Only a chain member is watched at all; a non-member gets no line.
+            let weeklyTick = p.fallback == nil ? nil : status.weeklyLine(for: .codex)
             heroRow(heroIsFiveHour ? "5h" : "7d", hero,
-                    tick: heroIsFiveHour ? p.fallback?.threshold : nil)
+                    tick: heroIsFiveHour ? nil : weeklyTick)
             if heroIsFiveHour, p.sevenDay != nil {
-                secondaryRow
+                secondaryRow(weeklyTick: weeklyTick)
             }
         } else {
             Text("No usage data yet").font(Theme.meta).foregroundStyle(.tertiary)
@@ -244,9 +251,12 @@ struct AccountRow: View {
 
     // MARK: - 7d / Fable secondary row (half-width bars + shared weekly reset)
 
-    private var secondaryRow: some View {
+    /// `weeklyTick` marks the codex rotation line on the 7d mini bar when the hero is
+    /// a 5h window; claude rows pass nil, because their line is the 5h one the hero
+    /// already carries.
+    private func secondaryRow(weeklyTick: Double? = nil) -> some View {
         HStack(spacing: 12) {
-            miniBar("7d", p.sevenDay?.utilizationPct)
+            miniBar("7d", p.sevenDay?.utilizationPct, tick: weeklyTick)
             // Fable is a limited-trial window — render it only while the daemon still
             // reports it. The trial window simply drops out of status.json when it
             // ends, so `fableWeek` goes nil (no hardcoded end date), and the row
@@ -270,13 +280,15 @@ struct AccountRow: View {
         dead ? nil : Theme.resetHint(p.sevenDay?.resetsAt ?? p.fableWeek?.resetsAt)
     }
 
-    private func miniBar(_ label: String, _ pct: Double?) -> some View {
+    private func miniBar(_ label: String, _ pct: Double?, tick: Double? = nil) -> some View {
         HStack(spacing: 6) {
             Text(label).font(Theme.fine).foregroundStyle(.tertiary)
             UsageBar(
                 pct: pct ?? 0,
-                color: dead ? Color.secondary.opacity(0.5) : Theme.usageColor(pct ?? 0),
+                color: dead ? Color.secondary.opacity(0.5)
+                            : Theme.usageColor(pct ?? 0, threshold: tick ?? 100),
                 height: 5,
+                threshold: tick,
                 remaining: showsRemaining
             )
             .frame(maxWidth: .infinity)
