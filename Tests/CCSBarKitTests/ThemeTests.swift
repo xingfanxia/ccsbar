@@ -60,26 +60,37 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(Theme.resetHintText(secondsRemaining: 30), "resets in 0m")
     }
 
-    // MARK: usageColor — green headroom → amber at 80% of threshold → red at
-    // threshold (healthy is GREEN, not the active-only terracotta — CBAR-4 §5).
+    // MARK: usageColor — absolute bands: green → amber at 70 → red at 90
 
-    func testUsageColorBands() {
-        // threshold 95 → warning band starts at 0.8×95 = 76.
-        XCTAssertEqual(Theme.usageColor(10, threshold: 95), Theme.success)  // healthy → green
-        XCTAssertEqual(Theme.usageColor(75, threshold: 95), Theme.success)  // just under 76 → still healthy
-        XCTAssertEqual(Theme.usageColor(76, threshold: 95), Theme.warning)  // at 0.8× → warning
-        XCTAssertEqual(Theme.usageColor(94, threshold: 95), Theme.warning)  // just under threshold
-        XCTAssertEqual(Theme.usageColor(95, threshold: 95), Theme.danger)   // at threshold
-        XCTAssertEqual(Theme.usageColor(120, threshold: 95), Theme.danger)  // over
+    func testTheRampTurnsOnAbsolutePercentagesNotFractionsOfTheThreshold() {
+        // The defect: a window with no chain line defaults to threshold 100, so
+        // the old 0.8x rule only reached amber at 80 and red at 100 — a panel of
+        // 70-to-85%-spent accounts read as all-green.
+        XCTAssertEqual(Theme.usageColor(69, threshold: 95), Theme.success)
+        XCTAssertEqual(Theme.usageColor(70, threshold: 95), Theme.warning)
+        XCTAssertEqual(Theme.usageColor(89, threshold: 95), Theme.warning)
+        XCTAssertEqual(Theme.usageColor(90, threshold: 95), Theme.danger)
+        XCTAssertEqual(Theme.usageColor(120, threshold: 95), Theme.danger)
     }
 
-    func testUsageColorDefaultThresholdIs100() {
+    func testTheDefaultThresholdUsesTheSameBands() {
+        // Most windows carry no chain line at all; they were the ones stuck green.
         XCTAssertEqual(Theme.usageColor(50), Theme.success)
-        XCTAssertEqual(Theme.usageColor(85), Theme.warning) // ≥ 80
+        XCTAssertEqual(Theme.usageColor(78), Theme.warning, "78% spent is not a healthy account")
+        XCTAssertEqual(Theme.usageColor(90), Theme.danger)
         XCTAssertEqual(Theme.usageColor(100), Theme.danger)
     }
 
-    // MARK: color roles are distinct (the §5 "one meaning per hue" contract).
+    func testAnEarlyRotatingAccountGoesRedAtItsOwnLine() {
+        // The threshold is a floor on urgency, never a ceiling: past its own
+        // line the daemon is already acting, so calm-until-90 would hide it.
+        XCTAssertEqual(Theme.usageColor(65, threshold: 60), Theme.danger)
+        XCTAssertEqual(Theme.usageColor(50, threshold: 60), Theme.warning,
+                       "amber keeps its share of wherever the red line is, so there is still a warning step")
+        XCTAssertEqual(Theme.usageColor(20, threshold: 60), Theme.success)
+        // And it never makes a bar CALMER than the absolute bands would.
+        XCTAssertEqual(Theme.usageColor(95, threshold: 200), Theme.danger)
+    }
 
     func testColorRolesAreDistinct() {
         // active (terracotta) ≠ act-verb (darkened) ≠ armed (sapphire); a healthy

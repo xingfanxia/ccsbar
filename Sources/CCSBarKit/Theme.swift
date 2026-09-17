@@ -92,13 +92,32 @@ enum Theme {
                 alpha: 1)
     }
 
-    /// Bar fill by utilization, keyed to the account's OWN threshold (§5): green
-    /// headroom → amber at ≥0.8×threshold → red at ≥threshold. Threshold defaults
-    /// to 100 for windows with no fallback threshold. Terracotta is NOT used here —
-    /// a healthy bar is green, not the (active-only) brand hue.
+    /// Where the ramp turns. ABSOLUTE percentages of the window, not fractions
+    /// of the account's rotation threshold, which is what they were: a window
+    /// with no chain line defaults to `threshold = 100`, so amber only arrived
+    /// at 80 and red at 100 — and every bar on a panel of 70-to-85%-spent
+    /// accounts was still green (AX, 2026-09-16: 「现在一直是绿色」).
+    ///
+    /// A bar exists for the pre-attentive read of how much is gone. WHERE the
+    /// daemon rotates is a different fact with its own channel — the tick
+    /// `UsageBar` draws — so the colour is free to answer the human question.
+    static let warningPct: Double = 70
+    static let dangerPct: Double = 90
+
+    /// Bar fill by utilization (§5): green headroom → amber at 70 → red at 90.
+    /// Terracotta is NOT used here — a healthy bar is green, not the
+    /// (active-only) brand hue.
+    ///
+    /// `threshold` survives as a FLOOR on urgency and never a ceiling: an
+    /// account set to rotate at 60 is past its own line at 65, and reading calm
+    /// until 90 would hide the state the daemon is already acting on. It can
+    /// only make a bar more alarming, never less. Amber keeps the same fraction
+    /// of wherever the red line ends up, so an early-rotating account still
+    /// gets a warning band instead of jumping green → red in one step.
     static func usageColor(_ pct: Double, threshold: Double = 100) -> Color {
-        if pct >= threshold { return danger }
-        if pct >= 0.8 * threshold { return warning }
+        let red = min(dangerPct, threshold)
+        if pct >= red { return danger }
+        if pct >= red * (warningPct / dangerPct) { return warning }
         return success
     }
 
