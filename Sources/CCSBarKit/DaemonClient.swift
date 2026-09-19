@@ -67,7 +67,7 @@ enum DaemonClient {
     static func readStatus() -> StatusRead {
         guard let data = try? Data(contentsOf: statusURL) else { return .fileMissing }
         if let probe = try? JSONDecoder().decode(SchemaProbe.self, from: data),
-           probe.schema != supportedSchema {
+           !readsSchema(probe.schema) {
             return .schemaUnsupported(probe.schema)
         }
         do {

@@ -228,7 +228,7 @@ enum Snapshot {
     /// row inspected), `mid-switch` (pending), `daemon-dead` (frozen banner + dim),
     /// `tokens` (machine-wide token strip expanded, TOK-4).
     /// `config` opens the expanded Configure disclosure (§7). Legacy:
-    /// `healthy`/`stale`/`schema2`/`skew`.
+    /// `healthy`/`stale`/`schema3`/`skew`.
     @MainActor
     static func render(variant: String, to path: String, scale: CGFloat = 2, appearance: Appearance = .dark) {
         // Render under the requested system appearance so the PNG resembles the live
@@ -240,7 +240,7 @@ enum Snapshot {
 
         // Dead/stale variants intentionally show an old timestamp; every other variant
         // is a LIVE state, so freshen `generated_at` to now for an honest "live" stamp.
-        let staleVariants: Set<String> = ["daemon-dead", "dead", "stale", "schema2", "skew"]
+        let staleVariants: Set<String> = ["daemon-dead", "dead", "stale", "schema3", "skew"]
         guard let rawData = Fixtures.statusJSONData() else {
             FileHandle.standardError.write(Data("snapshot: failed to load fixture\n".utf8))
             return
@@ -278,7 +278,7 @@ enum Snapshot {
             case "reauth-active": return (brokenActive?.0 ?? mock, .ok, brokenActive?.1 ?? nonActive, .idle, .claude)
             case "mid-switch": return (mock, .ok, nonActive, .pending(target: nonActive), .claude)
             case "daemon-dead", "dead", "stale": return (mock, .stalled(since: "05:00"), nil, .idle, .claude)
-            case "schema2": return (nil, .outOfDate(schema: 2), nil, .idle, .claude)
+            case "schema3": return (nil, .outOfDate(schema: 3), nil, .idle, .claude)
             case "skew": return (fixtureWithVersion("9.9.9", from: data) ?? mock, .ok, nil, .idle, .claude)
             // TABS-1 pages: the cross-harness glance, the codex management page
             // (inspection nil → resolves to the ACTIVE CODEX account), and the

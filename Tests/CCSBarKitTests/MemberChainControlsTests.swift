@@ -142,3 +142,38 @@ import Testing
         }
     }
 }
+
+// MARK: - The schema gate (UPS-18)
+//
+// clauth bumped status.json to schema 2 for one rename (`auth_status`
+// "expiring" → "expired"). ccsbar gated on `schema != 1`, so the moment the
+// daemon upgraded, a build that never read that value went blind: a bare gauge
+// in the menu bar and "update ccsbar" in the panel.
+
+@Suite struct SchemaGateTests {
+    @Test func theGateReadsEverySchemaUpToTheNewestItKnows() {
+        #expect(readsSchema(1), "an older daemon is a strict subset — still readable")
+        #expect(readsSchema(2), "what the current daemon writes")
+    }
+
+    @Test func theGateRefusesOnlyADaemonNewerThanThisBuild() {
+        #expect(!readsSchema(supportedSchema + 1))
+    }
+
+    @Test func aSchemaTwoFeedDecodesWithBothRenamedAuthValues() throws {
+        // `expired` (the rename) and `unknown` (codex, no usage cache yet) must
+        // decode as the plain strings they are, and neither may read as broken.
+        let json = """
+        {"schema":2,"generated_at":"2099-01-01T00:00:00+00:00","active_profile":"a",
+         "wrap_off":false,"refresh_interval_ms":90000,"fallback_chain":["a"],
+         "profiles":[
+           {"name":"a","active":true,"auth_status":"expired","windows":[]},
+           {"name":"cx","active":false,"harness":"codex","auth_status":"unknown","windows":[]},
+           {"name":"b","active":false,"auth_status":"broken","windows":[]}
+         ]}
+        """
+        let s = try JSONDecoder().decode(DaemonStatus.self, from: Data(json.utf8))
+        #expect(s.schema == 2)
+        #expect(s.profiles.map(\.authBroken) == [false, false, true])
+    }
+}

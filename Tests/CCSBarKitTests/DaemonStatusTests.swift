@@ -17,7 +17,7 @@ final class DaemonStatusTests: XCTestCase {
     func testBundledFixtureDecodes() throws {
         let data = try XCTUnwrap(Fixtures.statusJSONData(), "fixture resource must be bundled")
         let status = try JSONDecoder().decode(DaemonStatus.self, from: data)
-        XCTAssertEqual(status.schema, 1)
+        XCTAssertEqual(status.schema, 2, "the fixture is what the live daemon writes")
         // Neutral demo profiles for public README media (see Fixtures header): three
         // anthropic accounts, account-3 marked last_resort so the flag badge shows,
         // plus two codex profiles (INT-2/TABS-1): the two-active-slots case AND a

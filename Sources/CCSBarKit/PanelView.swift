@@ -262,7 +262,7 @@ struct PanelView: View {
         VStack(alignment: .leading, spacing: 7) {
             Label("ccsbar out of date", systemImage: "arrow.up.circle")
                 .font(Theme.sub).foregroundStyle(Theme.warning)
-            Text("The daemon writes status.json schema \(schema); this ccsbar reads \(supportedSchema). Update ccsbar.")
+            Text("The daemon writes status.json schema \(schema); this ccsbar reads up to \(supportedSchema). Update ccsbar.")
                 .font(Theme.fine).foregroundStyle(.secondary)
             Divider().padding(.vertical, 7)
             ActionRow(icon: "power", title: "Quit ccsbar") { NSApp.terminate(nil) }

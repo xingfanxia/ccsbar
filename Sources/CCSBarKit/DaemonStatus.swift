@@ -8,12 +8,24 @@ struct SchemaProbe: Decodable, Sendable {
     let schema: Int
 }
 
-/// The `status.json` schema this ccsbar build understands. A newer daemon
-/// bumps the on-disk `schema`; the gate turns that into an explicit
-/// "ccsbar out of date" state instead of a silent blank panel.
-let supportedSchema = 1
+/// The NEWEST `status.json` schema this ccsbar build understands. A daemon that
+/// bumps past it reads as an explicit "ccsbar out of date" state instead of a
+/// silent blank panel.
+///
+/// Schema 2 (clauth `a37e81c9`) renamed `auth_status` `"expiring"` → `"expired"`
+/// — the value always named a token already PAST expiry — and added `"unknown"`
+/// for codex entries. ccsbar reads `auth_status` only as `== "broken"`, so both
+/// read correctly here, and a schema-1 daemon is a strict subset of 2.
+let supportedSchema = 2
 
-/// Mirror of `~/.clauth/status.json` (schema 1), written by `clauth daemon`.
+/// Whether this build can read a feed of `schema`: anything up to the newest it
+/// knows. Refusing only NEWER schemas is the rule clauth's own contract states
+/// ("a reader can refuse a daemon newer than it knows"); the previous `!=`
+/// gate also refused every OLDER one and blinded the panel the moment a daemon
+/// bumped for a rename this build never read.
+func readsSchema(_ schema: Int) -> Bool { schema <= supportedSchema }
+
+/// Mirror of `~/.clauth/status.json` (schema 2; reads 1), written by `clauth daemon`.
 /// See clauth's `src/daemon/status_json.rs` for the authoritative shape.
 struct DaemonStatus: Codable, Sendable {
     let schema: Int
@@ -210,7 +222,9 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     let fallback: FallbackInfo?
     let windows: [UsageWindow]
     let thirdParty: ThirdPartyInfo?
-    /// AUTH-2 per-profile auth status: "ok" | "expiring" | "broken"; absent = ok
+    /// AUTH-2 per-profile auth status: "ok" | "expired" | "broken" | "unknown"
+    /// (schema 1 spelled `expired` as "expiring"); absent = ok. Read only as
+    /// `== "broken"` below, which is why the schema-2 rename changes nothing here.
     /// (older daemons). Drives the forecast engine's auth-broken skip (AUTH-1) and
     /// the red auth badge — a revoked login must never be a rotation target.
     let authStatus: String?
