@@ -8,9 +8,11 @@ struct CodexProxyRow: View {
     @State private var routed = false
     @State private var serving = false
     @State private var error: String?
-    /// Hover expands the explainer in place (the TokensStrip idiom) —
-    /// `.help()` tooltips don't reliably surface inside a MenuBarExtra panel.
-    @State private var hovering = false
+    /// The explainer opens on a click of the (i) button, never on hover: a
+    /// hover-grown block resized the panel under a pointer just passing through
+    /// on its way to the account list. `.help()` tooltips don't reliably surface
+    /// inside a MenuBarExtra panel, so it stays an in-place block.
+    @State private var explaining = false
     @Environment(\.snapshotRender) private var snapshotRender
 
     var body: some View {
@@ -19,6 +21,14 @@ struct CodexProxyRow: View {
                 HStack(spacing: 10) {
                     Image(systemName: "network").frame(width: 19)
                     Text("Proxy mode").font(Theme.body)
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) { explaining.toggle() }
+                    } label: {
+                        Image(systemName: explaining ? "info.circle.fill" : "info.circle")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(explaining ? "Hide what proxy mode does" : "What proxy mode does")
                     Spacer()
                     Text(caption)
                         .font(Theme.micro)
@@ -29,7 +39,7 @@ struct CodexProxyRow: View {
                 Text(error).font(Theme.micro).foregroundStyle(Theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if hovering {
+            if explaining {
                 Text(explainer)
                     .font(Theme.micro).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -37,8 +47,6 @@ struct CodexProxyRow: View {
             }
         }
         .padding(.vertical, 6).padding(.horizontal, 10)
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
         .onAppear(perform: refresh)
     }
 

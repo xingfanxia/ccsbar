@@ -11,34 +11,48 @@ import SwiftUI
 /// beside it — cost always prices cache tokens, and the cache-excluded `in_out`
 /// basis this strip originally headlined read as a broken counter ("1.03M · $319").
 ///
-/// Collapsed to ONE line ("today 577M · $12.40"); hovering anywhere over the strip
-/// expands an inline detail block (a 4-row period table + the top models) in place,
-/// the same expand-in-place idiom the banners/disclosures use — no popover. The hover
-/// target is the whole strip+detail container, so sliding the pointer down into the
-/// detail keeps it open. Rendered only when `machineTokens != nil`; PanelView also
+/// Collapsed to ONE line ("today 577M · $12.40"); CLICKING that line expands an
+/// inline detail block (a 4-row period table + the top models) in place, the same
+/// disclosure idiom the banners use — no popover. It used to open on hover, which
+/// resized the whole panel whenever the pointer merely crossed the strip; now only
+/// a click changes the layout, hover just highlights, and the choice is remembered
+/// across panel opens. Rendered only when `machineTokens != nil`; PanelView also
 /// gates the surrounding divider on that, so a machine with no snapshot yet shows no
 /// trace of the strip.
 struct TokensStrip: View {
     @ObservedObject var model: StatusModel
-    @State private var expanded: Bool
+    /// Remembered across panel opens, like the panel's display options.
+    @AppStorage("tokensStripExpanded") private var expandedPref = false
+    @State private var hovering = false
+    /// True only for snapshot/preview renders, which show the detail regardless
+    /// of the viewer's remembered choice so the media is deterministic.
+    private let pinnedOpen: Bool
 
-    /// `startExpanded` is true only for snapshot/preview renders: the detail is
-    /// hover-gated, and a headless `ImageRenderer` can't hover, so the media would
-    /// otherwise capture only the collapsed line. The live app always starts collapsed.
     init(model: StatusModel, startExpanded: Bool = false) {
         self.model = model
-        self._expanded = State(initialValue: startExpanded)
+        self.pinnedOpen = startExpanded
     }
+
+    private var expanded: Bool { pinnedOpen || expandedPref }
 
     var body: some View {
         if let tokens = model.machineTokens {
             VStack(alignment: .leading, spacing: 7) {
-                collapsedLine(tokens)
-                if expanded { detail(tokens) }
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) { expandedPref.toggle() }
+                } label: {
+                    collapsedLine(tokens)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .contentShape(Rectangle())
+                        .background(hovering ? Color.primary.opacity(0.045) : .clear,
+                                    in: RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering = $0 }
+                .accessibilityLabel(expanded ? "Hide token details" : "Show token details")
+                if expanded { detail(tokens).padding(.horizontal, 6) }
             }
-            .padding(.horizontal, 19).padding(.top, 5).padding(.bottom, 10)
-            .contentShape(Rectangle())
-            .onHover { expanded = $0 }
+            .padding(.horizontal, 13).padding(.top, 2).padding(.bottom, 10)
         }
     }
 
