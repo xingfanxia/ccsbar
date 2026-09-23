@@ -29,6 +29,7 @@ struct PanelView: View {
         }
         .frame(width: 420)
         .padding(.vertical, 14)
+        .background { if !model.isPreview { PanelTopAnchor() } }
         .onAppear { if !model.isPreview { model.resetInspection() } }
     }
 
