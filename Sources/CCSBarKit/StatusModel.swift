@@ -7,9 +7,10 @@ import SwiftUI
 ///
 /// TABS-1 decomposition: this file owns the STORED STATE, polling, and derived
 /// display; the switch-machine effects live in `StatusModelSwitch.swift` and the
-/// command/login/config actions in `StatusModelActions.swift` (same-type
-/// extensions). Properties those files mutate are module-internal by necessity —
-/// views must still treat them as read-only.
+/// command/login/config actions in `StatusModelActions.swift`, and the codex
+/// use-a-reset flow in `StatusModelReset.swift` (same-type extensions).
+/// Properties those files mutate are module-internal by necessity — views must
+/// still treat them as read-only.
 @MainActor
 final class StatusModel: ObservableObject {
     /// Daemon liveness the panel must render distinctly (TECH-4). `.ok` shows the
@@ -46,6 +47,7 @@ final class StatusModel: ObservableObject {
                 renaming = nil
                 pendingRemoval = nil
                 pendingDelete = nil
+                pendingReset = nil
                 thresholdEdit = nil
             }
             guard !isPreview else { return }
@@ -57,6 +59,11 @@ final class StatusModel: ObservableObject {
     /// a few seconds and on the next successful command ('errors must be loud').
     /// (Internal set: mutated by the Actions/Switch extension files.)
     @Published var lastCommandError: String?
+    /// A transient, NEUTRAL confirmation of a command whose result is worth
+    /// reading — today a used reset's summary ("2 window(s) reopened, 0 left").
+    /// Most commands need none (the panel itself moves); this one's effect is
+    /// only visible after the daemon's next poll. Auto-clears like the error.
+    @Published var lastCommandNotice: String?
     /// The user-initiated switch lifecycle (CBAR4-3) — drives the panel's
     /// arm-confirm / pending / confirmed / failed states. The pure transitions live
     /// in `SwitchMachine`; `StatusModelSwitch.swift` owns the effects.
@@ -87,6 +94,13 @@ final class StatusModel: ObservableObject {
     /// The profile whose `clauth delete` spawn is currently running, or nil.
     /// Single-flight: the context-menu item disables while one is in flight.
     @Published var deleteInFlight: String?
+    /// The codex profile awaiting the USE-RESET confirm banner — spending a
+    /// banked usage-limit reset can't be undone, so the menu item only arms
+    /// this; the banner's "Use reset" is the deliberate step. `nil` ⇒ none.
+    @Published var pendingReset: String?
+    /// The profile whose `clauth use-reset` spawn is currently running, or nil.
+    /// Single-flight, like `deleteInFlight`.
+    @Published var resetInFlight: String?
     /// Count of config socket round-trips in flight (CBAR4-5 §7 pending shimmer) —
     /// the disclosure shows an honest "Applying…" while > 0. Cleared as each
     /// command's reply lands (the settle ladder then updates the view).
@@ -141,6 +155,7 @@ final class StatusModel: ObservableObject {
     // same-type extensions in sibling files can drive them; views never touch these.
     var settleTask: Task<Void, Never>?
     var errorClearTask: Task<Void, Never>?
+    var noticeClearTask: Task<Void, Never>?
     // Switch-machine effect tasks (CBAR4-3).
     var switchDispatchTask: Task<Void, Never>?
     var switchObserveTask: Task<Void, Never>?
@@ -221,15 +236,18 @@ final class StatusModel: ObservableObject {
         switch DaemonClient.readStatus() {
         case .ok(let s):
             status = s
+            dropStaleResetArm(against: s)
             liveness = Self.staleness(of: s, mtime: mtime)
             maybeNotify(s)
         case .schemaUnsupported(let n):
             // Distinct from "down": the daemon IS writing, we just can't read its
             // format. Drop the (unparsed) content and show the out-of-date state.
             status = nil
+            dropStaleResetArm(against: nil)
             liveness = .outOfDate(schema: n)
         case .fileMissing, .decodeFailed:
             status = nil
+            dropStaleResetArm(against: nil)
             liveness = .down
         }
     }
@@ -595,6 +613,17 @@ final class StatusModel: ObservableObject {
             try? await Task.sleep(for: .seconds(6))
             guard let self, !Task.isCancelled else { return }
             self.lastCommandError = nil
+        }
+    }
+
+    /// Publish a transient neutral notice, auto-cleared on the error's cadence.
+    func showNotice(_ message: String) {
+        lastCommandNotice = message
+        noticeClearTask?.cancel()
+        noticeClearTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard let self, !Task.isCancelled else { return }
+            self.lastCommandNotice = nil
         }
     }
 }

@@ -3,9 +3,9 @@ import SwiftUI
 
 /// The right-click context menu carried by every account row (design §7 — the FAST
 /// PATH). Native `NSMenu` metrics give the full chain-edit vocabulary at free 13/24pt
-/// without opening the Configure disclosure: switch, per-account refresh, add/remove,
-/// reorder, the "Leave chain at ▸" preset submenu, and copy-name. 80% of edits never
-/// open an editor.
+/// without opening the Configure disclosure: switch, per-account refresh, a codex
+/// account's use-a-reset, add/remove, reorder, the "Leave chain at ▸" preset submenu,
+/// and copy-name. 80% of edits never open an editor.
 ///
 /// Rendered inside `.contextMenu { AccountContextMenu(...) }`, so the body is menu
 /// items, not chrome. Commands route through `StatusModel` (same socket path as the
@@ -42,6 +42,17 @@ struct AccountContextMenu: View {
         }
         Button("Refresh \(p.name)") { model.refresh(p.name) }
             .disabled(!model.daemonReachable)
+
+        // Spend a banked codex usage-limit reset (`clauth use-reset`). Only on a
+        // codex row with a count above zero — the same rule as the row's reset
+        // chip. The item only ARMS the confirm banner; nothing is spent from
+        // the menu. CLI-only, so it works with the daemon down.
+        if StatusModel.offersUseReset(p), let available = p.codexResetCredits {
+            Button(StatusModel.useResetMenuTitle(available)) {
+                model.requestReset(p.name)
+            }
+            .disabled(model.useResetBlocked)
+        }
 
         // Reauth (AUTH-3) — for OAuth (anthropic) accounts and codex profiles;
         // third-party api-key profiles have no login to renew. Offered generally,

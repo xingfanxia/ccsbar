@@ -571,19 +571,25 @@ enum DaemonClient {
     /// any single line either drops the failure or drops the hint. Empty stderr
     /// falls back to the exit status. Pure and unit-tested.
     static func deleteFailureReason(stderr: String, exitStatus: Int32) -> String {
-        let flattened = stderr
+        let flattened = flattenedLines(stderr)
+        return flattened.isEmpty ? "clauth delete exited \(exitStatus)" : flattened
+    }
+
+    /// Every non-blank line of a CLI stream, trimmed and joined with " — " — one
+    /// banner line that keeps a multi-line refusal whole.
+    private static func flattenedLines(_ text: String) -> String {
+        text
             .split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
             .joined(separator: " — ")
-        return flattened.isEmpty ? "clauth delete exited \(exitStatus)" : flattened
     }
 
     /// How long a `clauth delete` may run before the spawn is presumed wedged.
     /// The command is local filesystem work (config rewrite + `remove_dir_all`)
     /// and exits in milliseconds; 30s is generous. The socket path bounds every
-    /// blocking call (`ioTimeout`) — this is the same policy for the one CLI
-    /// spawn whose stderr we also read.
+    /// blocking call (`ioTimeout`) — this is the same policy for the CLI
+    /// spawns whose output we also read (`runCapturing`).
     private static let deleteTimeout: Duration = .seconds(30)
 
     /// Run `clauth delete <name> --yes` (CLI-only — the daemon socket carries no
@@ -591,34 +597,163 @@ enum DaemonClient {
     /// guards, not a new socket surface). stderr is captured so a refusal
     /// ("has a live session", "unknown profile") reaches the error banner as
     /// clauth's own words instead of a bare exit code.
-    ///
-    /// stderr is drained CONCURRENTLY with the wait, never only after exit: a
-    /// child that fills the OS pipe buffer blocks in `write()` and never
-    /// terminates, so a drain that waits for `terminationHandler` deadlocks —
-    /// and `deleteInFlight` is a single global gate, so one wedged delete would
-    /// disable the verb for every account until the app restarts. A watchdog
-    /// SIGTERMs the child past `deleteTimeout` for the same reason; the
-    /// termination handler then fires normally with a non-zero status.
     static func deleteProfile(_ name: String) async -> CommandOutcome {
         guard let bin = clauthBinary() else { return .unreachable }
+        switch await runCapturing(bin, deleteArgs(name), timeout: deleteTimeout) {
+        case .failed(let message):
+            return .daemonError(code: "cli_failed", message: "could not run clauth: \(message)")
+        case .exited(0, _, _, _):
+            return .ok
+        case .exited(let status, _, _, let stderr):
+            return .daemonError(
+                code: "cli_failed",
+                message: deleteFailureReason(
+                    stderr: String(decoding: stderr, as: UTF8.self), exitStatus: status))
+        }
+    }
+
+    // MARK: - Use a codex usage-limit reset (CLI-only)
+
+    /// The argv for spending one banked codex usage-limit reset: `--yes`
+    /// because a non-TTY spawn can never answer the CLI confirm (clauth
+    /// refuses a non-TTY run without it, before any network call) — the
+    /// panel's armed banner is the deliberate step. Pure and unit-tested.
+    static func useResetArgs(_ name: String) -> [String] {
+        ["use-reset", name, "--yes"]
+    }
+
+    /// How a `clauth use-reset` spawn resolved. Its own type rather than
+    /// `CommandOutcome` because success carries clauth's summary line — the
+    /// only place the user learns how many windows reopened and how many
+    /// resets remain before the daemon's next poll.
+    enum UseResetOutcome: Equatable, Sendable {
+        /// Exit 0: a reset was used (or clauth found it already redeemed).
+        /// The summary is clauth's first stdout line, display-ready; nil when
+        /// stdout said nothing.
+        case used(summary: String?)
+        /// clauth refused or failed — the message is display-ready.
+        case failed(String)
+        /// No clauth binary — nothing ran, so nothing was spent.
+        case unreachable
+    }
+
+    /// Classify a finished `clauth use-reset` run. Exit 0 → `.used` with the
+    /// summary; a signal death (the watchdog, or anything else) → the one
+    /// outcome clauth never got to report, so it says the reset MAY have gone
+    /// through and names `--list` as the check before a retry; any other exit →
+    /// clauth's own stderr. Pure and unit-tested.
+    static func useResetOutcome(
+        name: String, status: Int32, signaled: Bool, stdout: String, stderr: String
+    ) -> UseResetOutcome {
+        if signaled {
+            return .failed("clauth use-reset was stopped before it finished — the reset may or may not"
+                + " have gone through. Check `clauth use-reset \(name) --list` before trying again.")
+        }
+        if status == 0 { return .used(summary: useResetSummary(stdout: stdout)) }
+        return .failed(useResetFailureReason(stderr: stderr, exitStatus: status))
+    }
+
+    /// clauth's one-line success summary for display: the first non-blank
+    /// stdout line with its `clauth: ` prefix stripped and the first letter
+    /// raised ("clauth: used a usage-limit reset on 'x': …" → "Used a …").
+    /// nil when stdout is blank. Pure and unit-tested.
+    static func useResetSummary(stdout: String) -> String? {
+        guard let line = stdout.split(separator: "\n")
+            .map({ $0.trimmingCharacters(in: .whitespaces) })
+            .first(where: { !$0.isEmpty })
+        else { return nil }
+        let prefix = "clauth: "
+        return sentenceCased(line.hasPrefix(prefix) ? String(line.dropFirst(prefix.count)) : line)
+    }
+
+    /// The error copy for a failed `clauth use-reset`: its stderr flattened
+    /// the way `deleteFailureReason` does it (a refusal plus its hint stay
+    /// together), minus Rust's leading `Error: ` — the banner already says it
+    /// is an error. Empty stderr falls back to the exit status. Pure and
+    /// unit-tested.
+    static func useResetFailureReason(stderr: String, exitStatus: Int32) -> String {
+        let flattened = flattenedLines(stderr)
+        guard !flattened.isEmpty else { return "clauth use-reset exited \(exitStatus)" }
+        let prefix = "Error: "
+        return sentenceCased(flattened.hasPrefix(prefix) ? String(flattened.dropFirst(prefix.count)) : flattened)
+    }
+
+    /// First character upper-cased — clauth's messages start lower-case after
+    /// their prefix, which reads as a fragment at the head of a banner.
+    private static func sentenceCased(_ text: String) -> String {
+        text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    /// Past this a `clauth use-reset` spawn is presumed wedged. clauth bounds
+    /// each of its two requests (list, then consume) at ~15s, so a healthy run
+    /// finishes well inside it.
+    private static let useResetTimeout: Duration = .seconds(60)
+
+    /// Run `clauth use-reset <name> --yes`: clauth lists the account's banked
+    /// resets, picks the one expiring soonest, and consumes it. CLI-only, like
+    /// delete — the daemon socket carries no verb for it — and it works with
+    /// the daemon up or down. Never retried from here: a retry after an
+    /// unconfirmed outcome could spend a second reset.
+    static func useReset(_ name: String) async -> UseResetOutcome {
+        guard let bin = clauthBinary() else { return .unreachable }
+        switch await runCapturing(bin, useResetArgs(name), timeout: useResetTimeout) {
+        case .failed(let message):
+            // Never started, so nothing was spent.
+            return .failed("Couldn't run clauth: \(message)")
+        case .exited(let status, let signaled, let stdout, let stderr):
+            return useResetOutcome(
+                name: name, status: status, signaled: signaled,
+                stdout: String(decoding: stdout, as: UTF8.self),
+                stderr: String(decoding: stderr, as: UTF8.self))
+        }
+    }
+
+    // MARK: - Captured spawn (shared by delete and use-reset)
+
+    /// One `clauth` spawn whose output we read: it never started, or it exited
+    /// — normally or by a signal, the watchdog's included — with both streams
+    /// read to EOF. Internal (with `runCapturing`) so a test can drive the
+    /// drain and the watchdog with `/bin/sh` — never with clauth.
+    enum Captured: Equatable {
+        case failed(String)
+        case exited(status: Int32, signaled: Bool, stdout: Data, stderr: Data)
+    }
+
+    /// Spawn `clauth <args>` capturing stdout AND stderr, bounded by `timeout`.
+    ///
+    /// Both pipes are drained CONCURRENTLY with the wait, never only after
+    /// exit: a child that fills an OS pipe buffer blocks in `write()` and
+    /// never terminates, so a drain that waits for `terminationHandler`
+    /// deadlocks — and each caller's in-flight flag is a single global gate,
+    /// so one wedged spawn would disable its verb for every account until the
+    /// app restarts. A watchdog SIGTERMs the child past `timeout` for the same
+    /// reason; the termination handler then fires normally and reports it.
+    static func runCapturing(_ bin: String, _ args: [String], timeout: Duration) async -> Captured {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: bin)
-        proc.arguments = deleteArgs(name)
+        proc.arguments = args
+        let stdout = Pipe()
         let stderr = Pipe()
+        proc.standardOutput = stdout
         proc.standardError = stderr
-        let readEnd = stderr.fileHandleForReading
-        // Started before the wait so the pipe can never fill unread. Reaches
-        // EOF when the write end closes — on the spawn-failure path that is
-        // when `proc`/`stderr` release their handles at scope exit.
-        let drain = Task.detached { readEnd.readDataToEndOfFile() }
+        let outEnd = stdout.fileHandleForReading
+        let errEnd = stderr.fileHandleForReading
+        // Started before the wait so neither pipe can fill unread. Each reaches
+        // EOF when its write end closes — on the spawn-failure path that is
+        // when `proc` and the pipes release their handles at scope exit.
+        let outDrain = Task.detached { outEnd.readDataToEndOfFile() }
+        let errDrain = Task.detached { errEnd.readDataToEndOfFile() }
 
-        enum Spawn { case exited(Int32), failed(String) }
+        enum Spawn { case exited(Int32, signaled: Bool), failed(String) }
         let spawn: Spawn = await withCheckedContinuation { cont in
-            proc.terminationHandler = { cont.resume(returning: .exited($0.terminationStatus)) }
+            proc.terminationHandler = {
+                cont.resume(returning: .exited(
+                    $0.terminationStatus, signaled: $0.terminationReason == .uncaughtSignal))
+            }
             do {
                 try proc.run()
                 Task.detached {
-                    try? await Task.sleep(for: deleteTimeout)
+                    try? await Task.sleep(for: timeout)
                     if proc.isRunning { proc.terminate() }
                 }
             } catch {
@@ -629,17 +764,13 @@ enum DaemonClient {
         }
         switch spawn {
         case .failed(let message):
-            drain.cancel()
-            return .daemonError(code: "cli_failed", message: "could not run clauth: \(message)")
-        case .exited(0):
-            _ = await drain.value
-            return .ok
-        case .exited(let status):
-            let data = await drain.value
-            return .daemonError(
-                code: "cli_failed",
-                message: deleteFailureReason(
-                    stderr: String(decoding: data, as: UTF8.self), exitStatus: status))
+            outDrain.cancel()
+            errDrain.cancel()
+            return .failed(message)
+        case .exited(let status, let signaled):
+            let out = await outDrain.value
+            let err = await errDrain.value
+            return .exited(status: status, signaled: signaled, stdout: out, stderr: err)
         }
     }
 

@@ -291,6 +291,9 @@ enum Snapshot {
             // The codex chain editor: its rows carry no per-member threshold menu and
             // no last-resort flag, because clauth refuses both on a codex member.
             case "codex-config": return (mock, .ok, nil, .idle, .codex)
+            // The use-a-reset confirm armed on the first codex row with a banked
+            // reset, and the notice a used one leaves behind.
+            case "reset-confirm", "reset-used": return (mock, .ok, nil, .idle, .codex)
             // default / healthy: inspected=nil resolves to the ACTIVE account (the real
             // first-open path — StatusModel.inspected falls back to active), so this
             // renders the one card that carries the "pick another account above to
@@ -319,6 +322,14 @@ enum Snapshot {
         // two-row layout (field, then Cancel / Capture / Sign in) that keeps the
         // primary verb un-truncated at 420pt.
         if variant == "add-codex" { model.addingHarness = .codex }
+        if variant == "reset-confirm" {
+            model.pendingReset = mock.profiles.first(where: StatusModel.offersUseReset)?.name
+        }
+        if variant == "reset-used" {
+            // Set directly, not via `showNotice` — its auto-clear Task has no
+            // business in a headless render.
+            model.lastCommandNotice = "Used a usage-limit reset on 'codex-1': 2 window(s) reopened, 1 left."
+        }
         let skewNote = model.versionSkew.map { " skew=\($0)" } ?? ""
         let phaseNote = phase == .idle ? "" : " phase=\(phase)"
         let inspectNote = inspected.map { " inspected=\($0)" } ?? ""

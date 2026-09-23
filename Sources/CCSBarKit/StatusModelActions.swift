@@ -134,6 +134,20 @@ extension StatusModel {
     /// Force a usage re-fetch for one account (context-menu "Refresh <name>", §7).
     func refresh(_ name: String) { run({ DaemonClient.refresh(name) }, shimmer: false) }
 
+    /// Force a usage re-fetch for one account WITHOUT touching the command
+    /// banners: a successful socket reply still settles status.json, but it
+    /// never clears an error already on screen, and a failed one raises none.
+    /// For re-polling after an outcome the user must keep reading (an
+    /// unconfirmed use-reset). `work` is injected for tests.
+    func refreshQuietly(_ name: String, work: (@Sendable () -> CommandOutcome)? = nil) {
+        let work = work ?? { DaemonClient.refresh(name) }
+        Task { [weak self] in
+            let outcome = await Task.detached(operation: work).value
+            guard let self, case .ok = outcome else { return }
+            self.settle()
+        }
+    }
+
     /// Re-authenticate a dropped account (AUTH-3) through `clauth login`. Spawns OFF
     /// the main actor — a browser flow blocks until the sign-in finishes — while the
     /// detail card shows an in-flight state. On success the CLI cleared `auth_broken`

@@ -38,16 +38,26 @@ struct PanelView: View {
     private func populated(_ status: DaemonStatus) -> some View {
         let dead = model.liveness.isStalled
         // Global banners: model-wide states that must be visible from ANY page —
-        // a rejected config edit, the armed-member removal confirm, an in-flight
-        // login, and the rename/add editors (TextFields need a stable focus home).
+        // a rejected config edit or a finished command's notice, the armed
+        // removal / delete / use-a-reset confirms, an in-flight login or reset,
+        // and the rename/add editors (TextFields need a stable focus home).
         if let error = model.lastCommandError {
             commandErrorBanner(error)
+        }
+        if let notice = model.lastCommandNotice {
+            commandNoticeBanner(notice)
         }
         if let prompt = model.pendingRemovalPrompt {
             removalConfirmBanner(prompt)
         }
         if let prompt = model.pendingDeletePrompt {
             deleteConfirmBanner(prompt)
+        }
+        if let prompt = model.pendingResetPrompt {
+            resetConfirmBanner(prompt)
+        }
+        if let name = model.resetInFlight {
+            resetFlightBanner(name)
         }
         if let flight = model.loginInFlight {
             LoginFlightBanner(flight: flight)
@@ -240,6 +250,54 @@ struct PanelView: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Theme.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
+    }
+
+    // MARK: - Use-a-reset confirm + in-flight (codex teal — spending an asset, nothing is wrong)
+
+    private func resetConfirmBanner(_ prompt: String) -> some View {
+        HStack(spacing: 10) {
+            // The row chip's glyph and hue, so the banner reads as "that badge".
+            Image(systemName: "arrow.counterclockwise").foregroundStyle(Theme.codex)
+            Text(prompt).font(Theme.sub).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            // Cancel is pure local state — never gated on anything.
+            Button("Cancel") { model.cancelReset() }.controlSize(.small)
+            // `confirmReset`'s own gate, made visible (the delete banner's rule).
+            Button("Use reset") { model.confirmReset() }
+                .controlSize(.small).tint(Theme.codex)
+                .disabled(model.useResetBlocked)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Theme.codex.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
+    }
+
+    /// The spawn lists, then consumes — a few seconds on a slow link. Without
+    /// this the confirm banner would vanish into nothing until the outcome lands.
+    private func resetFlightBanner(_ name: String) -> some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text("Using a usage-limit reset on \(name)…")
+                .font(Theme.fine).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Theme.codex.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 14).padding(.bottom, 7)
+    }
+
+    // MARK: - Command notice banner (the error banner's neutral twin)
+
+    private func commandNoticeBanner(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success)
+            Text(message).font(Theme.fine).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Theme.success.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal, 14).padding(.bottom, 7)
     }
 

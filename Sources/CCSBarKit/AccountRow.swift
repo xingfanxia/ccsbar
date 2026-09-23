@@ -172,8 +172,8 @@ struct AccountRow: View {
                 .background(Theme.codex.opacity(0.22), in: Capsule())
                 .foregroundStyle(Theme.codex)
                 .help(banked == 1
-                    ? "1 free rate-limit reset banked on this account — redeem it from the Codex app (Reset usage); clauth only reads the count"
-                    : "\(banked) free rate-limit resets banked on this account — redeem them from the Codex app (Reset usage); clauth only reads the count")
+                    ? "1 free rate-limit reset banked on this account — right-click → Use a usage-limit reset… to spend it"
+                    : "\(banked) free rate-limit resets banked on this account — right-click → Use a usage-limit reset… to spend one")
             }
             // "watching" (not a bare bolt): auto-switch is watching this account and
             // will rotate away from it at its threshold (sapphire = the armed hue, §5).

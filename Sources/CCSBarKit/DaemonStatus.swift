@@ -253,9 +253,9 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// spent window early (`rate_limit_reset_credits.available_count` on the
     /// same usage body the verdict rides). `nil` for claude profiles, older
     /// daemons, and until the daemon's first poll has carried a count — nil
-    /// says nothing, and is never rendered as "0 banked". A count is only
-    /// worth a word beside a SPENT window: the badge is redeemed on OpenAI's
-    /// side (the app's "Reset usage"), never by clauth or ccsbar.
+    /// says nothing, and is never rendered as "0 banked". Spent through
+    /// `clauth use-reset <name>` — the row menu's "Use a usage-limit reset…"
+    /// spawns it — or the Codex app's "Reset usage"; the daemon only reads it.
     let codexResetCredits: Int?
     /// CLA-ROLL: this profile's session-token sidecar holds a rolling bearer
     /// the daemon re-stamps from the usage chain — its hours-scale expiry is

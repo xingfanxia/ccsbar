@@ -145,7 +145,7 @@ struct CodexStrip: View {
                         Text(banked)
                     }
                     .font(Theme.sub).foregroundStyle(Theme.codex)
-                    .help("A rate-limit reset OpenAI granted this account. Redeem it from the Codex app (Reset usage) — clauth only reads the count.")
+                    .help("A rate-limit reset OpenAI granted this account. Right-click its row → Use a usage-limit reset… to spend it.")
                 }
             }
             Spacer(minLength: 0)

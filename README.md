@@ -56,8 +56,11 @@ When the active codex account is rate-limited the page opens with a **limit
 card**: which window is spent (named from the daemon's own percentages when
 OpenAI's verdict no longer names one), when it resets, and — new with clauth's
 `codex_reset_credits` — how many **free rate-limit resets** OpenAI has banked
-for that account. ccsbar only reads the count; a reset is redeemed from the
-Codex app ("Reset usage").
+for that account. Every codex row with one carries a reset badge, and
+right-clicking it offers **Use a usage-limit reset… (N left)**: a confirm
+banner names the account, its banked count and current usage, then ccsbar
+spawns `clauth use-reset <name> --yes` and shows clauth's own summary
+(windows reopened, resets left).
 
 | | Overview | Codex | Codex, rate-limited |
 |---|---|---|---|
@@ -169,8 +172,9 @@ chain rail → actions**:
 - **actions** — Refresh usage, Start at login, Quit (the daemon keeps running).
 
 **Two config surfaces, no Settings window:** a native **right-click context menu** on
-every row (switch / refresh / re-authenticate / rename / add–remove / move / "Leave
-chain at ▸" preset submenu / last-resort toggle / copy name) for fast edits, and the inline **Configure**
+every row (switch / refresh / use a codex usage-limit reset / re-authenticate / rename /
+add–remove / move / "Leave chain at ▸" preset submenu / last-resort toggle / copy name)
+for fast edits, and the inline **Configure**
 disclosure as the canonical editor (per-account threshold, last-resort flag, reorder, add/remove, and the
 wrap-off
 setting as a plain-language radio). Removing an armed member asks first. Both drive the
@@ -259,6 +263,12 @@ Implemented (the CBAR-4 "Preflight" redesign):
   then spawns `clauth delete <name> --yes` — CLI-only and never `--force`, so a live
   `clauth start` session keeps refusing it and clauth's own refusal lands in the error
   banner verbatim.
+- **Use a codex usage-limit reset** — on a codex row with a banked reset, the
+  context-menu **"Use a usage-limit reset… (N left)"** arms a confirm banner (whose
+  reset, how many are left, current 5h/weekly usage, and that a used reset can't be
+  returned), then spawns `clauth use-reset <name> --yes` — CLI-only, so it works with
+  the daemon down. Success shows clauth's summary and re-polls the account; a refusal
+  ("nothing to reset right now", "no longer available") lands in the error banner.
 - **Inactive plans collapse** — accounts on a cancelled subscription (tier
   `canceled`) or a lapsed codex plan (tier `free`) fold into a quiet
   "N inactive accounts" disclosure at the foot of the list instead of taking a full
