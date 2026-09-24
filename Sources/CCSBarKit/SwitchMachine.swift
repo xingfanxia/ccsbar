@@ -67,12 +67,21 @@ enum SwitchMachine {
     /// immediate-then-exponential retry), and the switch lands seconds after a
     /// blind 6s timeout would have declared failure. Pure so every branch is
     /// unit-tested without timers.
+    ///
+    /// Also true while the daemon has not published status.json since the
+    /// request (`publishedSinceRequest == false`): the daemon pops the switch
+    /// off its queue and rewrites status.json only once the whole tick ends, so
+    /// a slow tick (a ~5s Keychain rewrite plus a slow status write) shows
+    /// neither the new active account nor a pending entry at 6s. No verdict
+    /// exists yet; failing then reported a switch that landed a second later.
     static func shouldExtendPending(
         daemonPending: String?,
         target: String,
-        elapsed: TimeInterval
+        elapsed: TimeInterval,
+        publishedSinceRequest: Bool = true
     ) -> Bool {
-        daemonPending == target && elapsed < pendingHardCeiling
+        guard elapsed < pendingHardCeiling else { return false }
+        return daemonPending == target || !publishedSinceRequest
     }
 
     static func reduce(_ phase: Phase, _ event: Event) -> Phase {

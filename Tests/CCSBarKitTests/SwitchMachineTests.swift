@@ -157,6 +157,24 @@ extension SwitchMachineTests {
             daemonPending: "xfx", target: "ax-backup", elapsed: 6))
     }
 
+    /// The daemon has not rewritten status.json since the click (a slow tick is
+    /// still running the switch) → no verdict yet, keep waiting. Observed
+    /// 2026-09-24: a 5.3s switch in a 6.7s tick false-failed at 6s.
+    func testDeadlineExtendsWhileTheDaemonHasNotPublishedSinceTheRequest() {
+        XCTAssertTrue(SwitchMachine.shouldExtendPending(
+            daemonPending: nil, target: "ax-backup", elapsed: 6,
+            publishedSinceRequest: false))
+        // Published since, no pending entry, not active → the verdict stands.
+        XCTAssertFalse(SwitchMachine.shouldExtendPending(
+            daemonPending: nil, target: "ax-backup", elapsed: 6,
+            publishedSinceRequest: true))
+        // The ceiling still bounds a daemon that never publishes again.
+        XCTAssertFalse(SwitchMachine.shouldExtendPending(
+            daemonPending: nil, target: "ax-backup",
+            elapsed: SwitchMachine.pendingHardCeiling,
+            publishedSinceRequest: false))
+    }
+
     /// The hard ceiling bounds the trust in the daemon's retry loop: a switch
     /// still deferred after 30s is genuinely stuck — surface the failure.
     func testDeadlineStopsExtendingAtTheHardCeiling() {

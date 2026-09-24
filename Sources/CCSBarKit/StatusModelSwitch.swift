@@ -96,11 +96,16 @@ extension StatusModel {
             // confirm it and false-fail every codex switch at the timeout.
             model.dispatch(.observedActive(model.status?.activeName(for: model.switchHarness)))
             guard case .pending = model.switchPhase else { return } // confirmed above
-            let elapsed = Date().timeIntervalSince(model.pendingSince ?? .distantPast)
+            let since = model.pendingSince ?? .distantPast
+            let elapsed = Date().timeIntervalSince(since)
+            // generated_at has whole-second resolution: a publish in the click's
+            // own second reads as "not yet", which only waits one more tick.
+            let published = model.status.flatMap { Theme.parseISO($0.generatedAt) }
             if SwitchMachine.shouldExtendPending(
                 daemonPending: model.status?.pendingSwitch,
                 target: target,
-                elapsed: elapsed
+                elapsed: elapsed,
+                publishedSinceRequest: published.map { $0 >= since } ?? true
             ) {
                 model.armPendingDeadline(target, in: 2)
                 return
