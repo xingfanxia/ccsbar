@@ -134,5 +134,7 @@ final class PlanUntilLabelTests: XCTestCase {
         XCTAssertNil(AccountRow.planUntilLabel(nil, now: now))
         XCTAssertNil(AccountRow.planUntilLabel("not a date", now: now))
         XCTAssertTrue(AccountRow.planUntilLabel("2027-01-05T00:00:00Z", now: now)!.contains("2027"))
+        let est = AccountRow.planUntilLabel("2026-09-30T08:19:37+00:00", estimated: true, now: now)
+        XCTAssertTrue(est!.hasPrefix("until ~"), est!)
     }
 }

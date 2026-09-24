@@ -262,6 +262,10 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// is a renewal the token has not caught up with); nil otherwise, for
     /// claude rows, free plans, and older daemons.
     let codexPlanUntil: String?
+    /// Codex-only: `codexPlanUntil` was rolled forward from a stale period
+    /// (OpenAI re-checks the subscription only at a fresh login) rather than
+    /// read. Rendered with a `~`. False for older daemons.
+    let codexPlanUntilEstimated: Bool
     /// CLA-ROLL: this profile's session-token sidecar holds a rolling bearer
     /// the daemon re-stamps from the usage chain — its hours-scale expiry is
     /// routine maintenance while true, a dying credential while false. Keys
@@ -288,6 +292,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         case codexRateLimitReached = "codex_rate_limit_reached"
         case codexResetCredits = "codex_reset_credits"
         case codexPlanUntil = "codex_plan_until"
+        case codexPlanUntilEstimated = "codex_plan_until_estimated"
         case rollingToken = "rolling_token"
     }
 
@@ -323,6 +328,8 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         codexRateLimitReached = try c.decodeIfPresent(String.self, forKey: .codexRateLimitReached)
         codexResetCredits = try c.decodeIfPresent(Int.self, forKey: .codexResetCredits)
         codexPlanUntil = try c.decodeIfPresent(String.self, forKey: .codexPlanUntil)
+        codexPlanUntilEstimated =
+            try c.decodeIfPresent(Bool.self, forKey: .codexPlanUntilEstimated) ?? false
         let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         rollingToken = try c.decodeIfPresent(Bool.self, forKey: .rollingToken)
             ?? legacy.decodeIfPresent(Bool.self, forKey: .sessionFeed)

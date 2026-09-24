@@ -39,7 +39,9 @@ struct AccountRow: View {
                         .textSelection(.enabled)
                     // Codex: when the paid period ends, from the login's own
                     // id_token (the daemon drops a date already past).
-                    if let until = Self.planUntilLabel(p.codexPlanUntil, now: Date()) {
+                    if let until = Self.planUntilLabel(
+                        p.codexPlanUntil, estimated: p.codexPlanUntilEstimated, now: Date())
+                    {
                         Text(" · \(until)").lineLimit(1).fixedSize()
                     }
                 }
@@ -378,17 +380,20 @@ struct AccountRow: View {
 
 
 extension AccountRow {
-    /// "until Oct 21" for a plan end ahead of `now` — the year only when it is
-    /// not `now`'s; nil for nil, an unparseable stamp, or a date already past
-    /// (the daemon filters those too; this keeps a stale file honest). Pure so
-    /// it is unit-tested.
-    nonisolated static func planUntilLabel(_ iso: String?, now: Date) -> String? {
+    /// "until Oct 21" for a plan end ahead of `now` — "until ~Oct 21" when the
+    /// daemon estimated it (rolled a stale period forward) — the year only when
+    /// it is not `now`'s; nil for nil, an unparseable stamp, or a date already
+    /// past (the daemon filters those too; this keeps a stale file honest).
+    /// Pure so it is unit-tested.
+    nonisolated static func planUntilLabel(
+        _ iso: String?, estimated: Bool = false, now: Date
+    ) -> String? {
         guard let iso, let date = Theme.parseISO(iso), date > now else { return nil }
         let cal = Calendar.current
         let sameYear = cal.component(.year, from: date) == cal.component(.year, from: now)
         let style = sameYear
             ? Date.FormatStyle().month(.abbreviated).day()
             : Date.FormatStyle().month(.abbreviated).day().year()
-        return "until \(date.formatted(style))"
+        return "until \(estimated ? "~" : "")\(date.formatted(style))"
     }
 }
