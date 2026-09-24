@@ -81,9 +81,13 @@ enum MenuBarLabelLadder {
         let disarmed = s.fallbackChain.isEmpty || armedCount == 0
         let trailing = disarmed ? "bolt.slash" : nil
 
-        // No 5h data yet — bare gauge + name, no misleading 0%.
+        // No 5h window — none read yet, or the last one lapsed while the usage
+        // endpoint is rate-limiting the poll. The pool figure reads the WEEK,
+        // which is still there, so the ordinary fleet label stands; the gauge +
+        // name form is only its fallback, never a no-data state of its own.
         guard let pct = active.fiveHour.map({ $0.utilizationPct }) else {
-            return Spec(symbol: gauge, text: truncated(active.name), trailingSymbol: trailing)
+            return Spec(symbol: gauge, text: truncated(active.name), trailingSymbol: trailing,
+                        showsFleetBars: true)
         }
         let threshold = active.fallback?.threshold ?? 100
         let text = "\(truncated(active.name)) \(Int(pct.rounded()))%"

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import XCTest
 
@@ -102,5 +103,18 @@ final class PanelLogicTests: XCTestCase {
          "profiles":[{"name":"alt","active":false},{"name":"xfx","active":false},{"name":"cl-ax","active":false}]}
         """)
         XCTAssertEqual(StatusModel(preview: s).inspected?.name, "xfx")
+    }
+}
+
+final class PanelTopAnchorTests: XCTestCase {
+    /// A page that got shorter shrinks the window to its content, keeps x and
+    /// width, and hangs the top just under the menu bar.
+    func testFittedFrameShrinksToContentAndHangsFromTheMenuBar() {
+        let tall = NSRect(x: 1500, y: 394, width: 420, height: 869)
+        let fitted = PanelTopAnchor.fittedFrame(tall, height: 640, menuBarBottom: 1264)
+        XCTAssertEqual(fitted.minX, 1500)
+        XCTAssertEqual(fitted.width, 420)
+        XCTAssertEqual(fitted.height, 640)
+        XCTAssertEqual(fitted.maxY, 1264 - PanelTopAnchor.gap)
     }
 }

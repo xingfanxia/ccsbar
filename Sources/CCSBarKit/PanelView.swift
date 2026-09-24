@@ -29,7 +29,14 @@ struct PanelView: View {
         }
         .frame(width: 420)
         .padding(.vertical, 14)
-        .background { if !model.isPreview { PanelTopAnchor() } }
+        // Report the content's own height, never the window's: the anchor
+        // sizes the window FROM this, so it must not be stretched by it.
+        .fixedSize(horizontal: false, vertical: true)
+        .background {
+            if !model.isPreview {
+                GeometryReader { geo in PanelTopAnchor(contentHeight: geo.size.height) }
+            }
+        }
         .onAppear { if !model.isPreview { model.resetInspection() } }
     }
 

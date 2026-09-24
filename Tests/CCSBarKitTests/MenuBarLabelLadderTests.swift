@@ -59,6 +59,16 @@ final class MenuBarLabelLadderTests: XCTestCase {
         XCTAssertFalse(out.text.contains("%"))
     }
 
+    /// No 5h window (never read, or lapsed while the usage poll is rate-limited)
+    /// keeps the fleet label: it reads the week, which is still there. The
+    /// bare gauge + name used to stand in and hid the pool figures.
+    func testNoFiveHourWindowStillShowsTheFleetLabel() {
+        let s = status(active: "xfx", profiles: [profile("xfx", active: true, util: nil)])
+        let out = spec(s)
+        XCTAssertTrue(out.showsFleetBars)
+        XCTAssertFalse(out.text.contains("%"))
+    }
+
     func testRung2SwitchInFlightEllipsis() {
         let s = status(active: "xfx", profiles: [profile("xfx", active: true, util: 62)])
         let out = spec(s, inFlight: true)
