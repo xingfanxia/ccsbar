@@ -118,3 +118,21 @@ final class PanelTopAnchorTests: XCTestCase {
         XCTAssertEqual(fitted.maxY, 1264 - PanelTopAnchor.gap)
     }
 }
+
+final class PlanUntilLabelTests: XCTestCase {
+    private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
+
+    /// A plan end ahead reads "until <Mon d>"; past, nil, and junk read nothing.
+    func testPlanUntilLabel() {
+        let now = date("2026-09-24T12:00:00Z")
+        let label = AccountRow.planUntilLabel("2026-10-21T12:06:00+00:00", now: now)
+        XCTAssertNotNil(label)
+        XCTAssertTrue(label!.hasPrefix("until "), label!)
+        XCTAssertTrue(label!.contains("21"), label!)
+        XCTAssertFalse(label!.contains("2026"), "same year: no year: \(label!)")
+        XCTAssertNil(AccountRow.planUntilLabel("2026-08-31T08:19:37+00:00", now: now), "past")
+        XCTAssertNil(AccountRow.planUntilLabel(nil, now: now))
+        XCTAssertNil(AccountRow.planUntilLabel("not a date", now: now))
+        XCTAssertTrue(AccountRow.planUntilLabel("2027-01-05T00:00:00Z", now: now)!.contains("2027"))
+    }
+}

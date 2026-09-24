@@ -184,7 +184,8 @@
             "rolling_token": false,
             "stale": false,
             "auto_start_queue": null,
-            "codex_reset_credits": 2
+            "codex_reset_credits": 2,
+            "codex_plan_until": "2027-10-21T12:06:00+00:00"
         },
         {
             "name": "codex-2",

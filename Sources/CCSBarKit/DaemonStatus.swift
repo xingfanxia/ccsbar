@@ -257,6 +257,11 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// `clauth use-reset <name>` — the row menu's "Use a usage-limit reset…"
     /// spawns it — or the Codex app's "Reset usage"; the daemon only reads it.
     let codexResetCredits: Int?
+    /// Codex-only: when the paid plan period ends (RFC-3339), from the login's
+    /// id_token. The daemon publishes it only while it lies ahead (a past date
+    /// is a renewal the token has not caught up with); nil otherwise, for
+    /// claude rows, free plans, and older daemons.
+    let codexPlanUntil: String?
     /// CLA-ROLL: this profile's session-token sidecar holds a rolling bearer
     /// the daemon re-stamps from the usage chain — its hours-scale expiry is
     /// routine maintenance while true, a dying credential while false. Keys
@@ -282,6 +287,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         case codexSnapshotAt = "codex_snapshot_at"
         case codexRateLimitReached = "codex_rate_limit_reached"
         case codexResetCredits = "codex_reset_credits"
+        case codexPlanUntil = "codex_plan_until"
         case rollingToken = "rolling_token"
     }
 
@@ -316,6 +322,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
         codexSnapshotAt = try c.decodeIfPresent(String.self, forKey: .codexSnapshotAt)
         codexRateLimitReached = try c.decodeIfPresent(String.self, forKey: .codexRateLimitReached)
         codexResetCredits = try c.decodeIfPresent(Int.self, forKey: .codexResetCredits)
+        codexPlanUntil = try c.decodeIfPresent(String.self, forKey: .codexPlanUntil)
         let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         rollingToken = try c.decodeIfPresent(Bool.self, forKey: .rollingToken)
             ?? legacy.decodeIfPresent(Bool.self, forKey: .sessionFeed)

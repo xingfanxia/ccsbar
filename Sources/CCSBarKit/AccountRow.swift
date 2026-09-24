@@ -30,16 +30,23 @@ struct AccountRow: View {
             // (and ccu's). Only OAuth profiles carry account_email, so no
             // provider gate is needed.
             if let email = p.accountEmail {
-                Text(email)
-                    .font(Theme.fine)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    // Selectable because the detail card, which used to be the
-                    // one place you could select it from, no longer repeats it.
-                    .textSelection(.enabled)
-                    .padding(.leading, 22)
-                    .padding(.top, -3)
+                HStack(spacing: 0) {
+                    Text(email)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        // Selectable because the detail card, which used to be the
+                        // one place you could select it from, no longer repeats it.
+                        .textSelection(.enabled)
+                    // Codex: when the paid period ends, from the login's own
+                    // id_token (the daemon drops a date already past).
+                    if let until = Self.planUntilLabel(p.codexPlanUntil, now: Date()) {
+                        Text(" · \(until)").lineLimit(1).fixedSize()
+                    }
+                }
+                .font(Theme.fine)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 22)
+                .padding(.top, -3)
             }
             // Codex profiles publish `provider == "openai"` but carry %-windows
             // (INT-2), so they take a bar path, not the third-party availability
@@ -367,4 +374,21 @@ struct AccountRow: View {
     /// The word VoiceOver uses for the axis currently on screen. Reading "used"
     /// while the row prints what is left would be worse than saying nothing.
     private var axisWord: String { FleetDisplay.axisWord(remaining: showsRemaining) }
+}
+
+
+extension AccountRow {
+    /// "until Oct 21" for a plan end ahead of `now` — the year only when it is
+    /// not `now`'s; nil for nil, an unparseable stamp, or a date already past
+    /// (the daemon filters those too; this keeps a stale file honest). Pure so
+    /// it is unit-tested.
+    nonisolated static func planUntilLabel(_ iso: String?, now: Date) -> String? {
+        guard let iso, let date = Theme.parseISO(iso), date > now else { return nil }
+        let cal = Calendar.current
+        let sameYear = cal.component(.year, from: date) == cal.component(.year, from: now)
+        let style = sameYear
+            ? Date.FormatStyle().month(.abbreviated).day()
+            : Date.FormatStyle().month(.abbreviated).day().year()
+        return "until \(date.formatted(style))"
+    }
 }
