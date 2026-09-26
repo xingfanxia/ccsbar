@@ -12,14 +12,34 @@ import SwiftUI
 /// "finish in your browser" for a flow that never opened one reads as a hang.
 struct LoginFlightBanner: View {
     let flight: LoginFlight
+    @State private var copied = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            ProgressView().controlSize(.small)
-            Text(flight.bannerText)
-                .font(Theme.fine).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text(flight.bannerText)
+                    .font(Theme.fine).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            // The browser may have opened out of sight: `open` picks a running
+            // instance of the default browser, and an agent's headless Chrome
+            // counts. The link finishes the sign-in from any browser.
+            if flight.mode == .browser, let link = flight.link {
+                HStack(spacing: 8) {
+                    Text("No browser tab?").font(Theme.fine).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button(copied ? "Copied" : "Copy link") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(link.absoluteString, forType: .string)
+                        copied = true
+                    }
+                    .controlSize(.small)
+                    Button("Open again") { NSWorkspace.shared.open(link) }
+                        .controlSize(.small)
+                }
+            }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Theme.sapphire.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))

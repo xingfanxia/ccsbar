@@ -288,6 +288,7 @@ enum Snapshot {
             case "codex-empty": return (fixtureWithoutCodex(from: data) ?? mock, .ok, nil, .idle, .codex)
             case "codex-limited": return (fixtureCodexLimited(from: data) ?? mock, .ok, nil, .idle, .codex)
             case "add-codex": return (mock, .ok, nil, .idle, .codex)
+            case "codex-signing-in": return (mock, .ok, nil, .idle, .codex)
             // The codex chain editor: its rows carry no per-member threshold menu and
             // no last-resort flag, because clauth refuses both on a codex member.
             case "codex-config": return (mock, .ok, nil, .idle, .codex)
@@ -322,6 +323,11 @@ enum Snapshot {
         // two-row layout (field, then Cancel / Capture / Sign in) that keeps the
         // primary verb un-truncated at 420pt.
         if variant == "add-codex" { model.addingHarness = .codex }
+        if variant == "codex-signing-in" {
+            model.loginInFlight = LoginFlight(
+                name: "ax-codex-xfx", mode: .browser,
+                link: URL(string: "https://auth.openai.com/oauth/authorize?response_type=code"))
+        }
         if variant == "reset-confirm" {
             model.pendingReset = mock.profiles.first(where: StatusModel.offersUseReset)?.name
         }

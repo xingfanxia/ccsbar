@@ -531,15 +531,24 @@ enum DaemonClient {
     /// the last-polled snapshot, so a profile minted out-of-band inside the poll
     /// window would otherwise be silently re-authenticated (non-TTY spawns never see
     /// clauth's confirm prompt).
+    ///
+    /// `onLink` receives the sign-in URL the CLI announces (codex browser PKCE:
+    /// `clauth: opening <url>`), once. `open` hands a URL to whichever running
+    /// instance of the default browser LaunchServices picks, and an agent's
+    /// headless Chrome is one; the banner offers the link so a sign-in that
+    /// opened out of sight can still finish (2026-09-26).
     static func login(
-        _ name: String, newOnly: Bool = false, codex: Bool = false, browser: Bool = true
+        _ name: String, newOnly: Bool = false, codex: Bool = false, browser: Bool = true,
+        onLink: (@Sendable (URL) -> Void)? = nil
     ) async -> CommandOutcome {
         guard let bin = clauthBinary() else { return .unreachable }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: bin)
         proc.arguments = loginArgs(name, newOnly: newOnly, codex: codex, browser: browser)
+        let stdout = onLink.map { watchForLoginLink(proc, onLink: $0) }
         return await withCheckedContinuation { (cont: CheckedContinuation<CommandOutcome, Never>) in
             proc.terminationHandler = { p in
+                stdout?.fileHandleForReading.readabilityHandler = nil
                 let status = p.terminationStatus
                 cont.resume(returning: status == 0
                     ? .ok
@@ -553,6 +562,56 @@ enum DaemonClient {
                 cont.resume(returning: .daemonError(
                     code: "cli_failed", message: "could not run clauth: \(error.localizedDescription)"))
             }
+        }
+    }
+
+    /// The sign-in URL in one line of `clauth login` stdout, or nil. Only the
+    /// codex PKCE announcement counts, and only an https URL: its redirect is a
+    /// loopback callback, so the link finishes the sign-in in any browser. Pure
+    /// and unit-tested.
+    static func loginLink(fromLine line: String) -> URL? {
+        let prefix = "clauth: opening "
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix(prefix) else { return nil }
+        guard let url = URL(string: String(trimmed.dropFirst(prefix.count))),
+              url.scheme == "https", url.host != nil else { return nil }
+        return url
+    }
+
+    /// Pipe `proc`'s stdout and report the first announced sign-in URL. The
+    /// pipe is read to the end so the CLI never blocks on a full buffer.
+    private static func watchForLoginLink(_ proc: Process, onLink: @escaping @Sendable (URL) -> Void) -> Pipe {
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        let state = LinkScan()
+        pipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let url = state.feed(data) else { return }
+            onLink(url)
+        }
+        return pipe
+    }
+
+    /// Line assembly for [`watchForLoginLink`]: bytes arrive in arbitrary
+    /// chunks, the URL is reported once.
+    final class LinkScan: @unchecked Sendable {
+        private let lock = NSLock()
+        private var buffer = ""
+        private var reported = false
+
+        func feed(_ data: Data) -> URL? {
+            lock.lock(); defer { lock.unlock() }
+            guard !reported else { return nil }
+            buffer += String(decoding: data, as: UTF8.self)
+            while let newline = buffer.firstIndex(of: "\n") {
+                let line = String(buffer[..<newline])
+                buffer.removeSubrange(...newline)
+                if let url = DaemonClient.loginLink(fromLine: line) {
+                    reported = true
+                    return url
+                }
+            }
+            return nil
         }
     }
 

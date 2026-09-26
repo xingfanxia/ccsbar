@@ -20,6 +20,8 @@ enum LoginMode: Equatable, Sendable {
 struct LoginFlight: Equatable, Sendable {
     let name: String
     let mode: LoginMode
+    /// The sign-in URL the CLI announced, once it has (codex browser flow).
+    var link: URL? = nil
 
     /// The in-flight banner copy — mode-aware, and PURE so the exact strings are
     /// unit-tested: a capture (instant, no browser) must never send the user
@@ -164,7 +166,10 @@ extension StatusModel {
         run: (@Sendable (String) async -> CommandOutcome)? = nil
     ) {
         guard loginInFlight == nil else { return } // one login at a time
-        let runner = run ?? { await DaemonClient.login($0, codex: codex, browser: mode == .browser) }
+        let onLink = linkRecorder()
+        let runner = run ?? {
+            await DaemonClient.login($0, codex: codex, browser: mode == .browser, onLink: onLink)
+        }
         loginInFlight = LoginFlight(name: name, mode: codex ? mode : .browser)
         lastCommandError = nil
         errorClearTask?.cancel()
@@ -180,6 +185,17 @@ extension StatusModel {
                 // down — the login still succeeded, but a socket refresh would surface a
                 // false "daemon unreachable" error; the next daemon tick picks it up.
                 self.refresh(name)
+            }
+        }
+    }
+
+    /// Hands the CLI's announced sign-in URL to the in-flight banner, on the
+    /// main actor. A link from a finished flight is dropped.
+    private func linkRecorder() -> @Sendable (URL) -> Void {
+        { [weak self] url in
+            Task { @MainActor in
+                guard let self, self.loginInFlight != nil else { return }
+                self.loginInFlight?.link = url
             }
         }
     }
@@ -224,8 +240,10 @@ extension StatusModel {
             showError(error)
             return
         }
+        let onLink = linkRecorder()
         let runner = run ?? {
-            await DaemonClient.login($0, newOnly: true, codex: codex, browser: mode == .browser)
+            await DaemonClient.login(
+                $0, newOnly: true, codex: codex, browser: mode == .browser, onLink: onLink)
         }
         addingHarness = nil
         loginInFlight = LoginFlight(name: trimmed, mode: codex ? mode : .browser)
