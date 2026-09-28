@@ -63,7 +63,17 @@ struct AccountRow: View {
                 fiveHourRow
                 secondaryRow()
             }
+            if model.resetInFlight == p.name {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Using a usage-limit reset…").font(Theme.sub).foregroundStyle(.secondary)
+                }
+                .padding(.top, 2)
+            } else if let confirm {
+                inlineConfirm(confirm)
+            }
         }
+        .animation(.easeOut(duration: 0.18), value: confirm)
         .padding(.vertical, 8).padding(.horizontal, 12)
         .background(
             // Inspected owns the 0.08 fill + ring; a bare hover gets a lighter 0.045
@@ -72,8 +82,13 @@ struct AccountRow: View {
             RoundedRectangle(cornerRadius: 11)
                 .fill(Color.primary.opacity(inspected ? 0.08 : (hovering ? 0.045 : 0)))
                 .overlay(
+                    // An armed confirm outlines the row in the action's hue: this
+                    // is the account the buttons below act on.
                     RoundedRectangle(cornerRadius: 11)
-                        .strokeBorder(Color.primary.opacity(inspected ? 0.18 : 0), lineWidth: 1)
+                        .strokeBorder(
+                            confirm.map { $0.tint.opacity(0.7) }
+                                ?? Color.primary.opacity(inspected ? 0.18 : 0),
+                            lineWidth: 1)
                 )
         )
         .contentShape(Rectangle())
@@ -86,8 +101,35 @@ struct AccountRow: View {
                 + (p.accountEmail.map { " · \($0)" } ?? "")
                 + " — click to inspect"
         )
-        .accessibilityElement(children: .combine)
+        // An armed confirm's buttons must stay reachable on their own.
+        .accessibilityElement(children: confirm == nil ? .combine : .contain)
         .accessibilityLabel(voiceOver)
+    }
+
+    // MARK: - Inline confirm (delete / use a reset / remove from chain)
+
+    private var confirm: RowConfirm? { RowConfirm.armed(for: p.name, in: model) }
+
+    @ViewBuilder
+    private func inlineConfirm(_ confirm: RowConfirm) -> some View {
+        switch confirm {
+        case .delete(let prompt):
+            // `confirmDelete`'s login guard, made visible: a login can hold it
+            // for its whole browser wait, and a dead button must look dead.
+            InlineConfirm(
+                message: prompt, action: "Delete", tint: confirm.tint,
+                disabled: model.loginInFlight != nil,
+                onCancel: { model.cancelDelete() }, onConfirm: { model.confirmDelete() })
+        case .reset(let prompt):
+            InlineConfirm(
+                message: prompt, action: "Use reset", tint: confirm.tint,
+                disabled: model.useResetBlocked,
+                onCancel: { model.cancelReset() }, onConfirm: { model.confirmReset() })
+        case .remove(let prompt):
+            InlineConfirm(
+                message: prompt, action: "Remove", tint: confirm.tint,
+                onCancel: { model.cancelRemoval() }, onConfirm: { model.confirmRemoval() })
+        }
     }
 
     // MARK: - Header (badge + name + tier + badge cluster)

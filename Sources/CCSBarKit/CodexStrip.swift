@@ -19,10 +19,15 @@ struct CodexStrip: View {
             } else if model.switchPhase != .idle, model.switchHarness == .codex {
                 SwitchLifecycleRow(phase: model.switchPhase, currentName: model.activeCodex?.name)
             } else if let active = model.activeCodex {
-                if let limited = Self.rateLimitLine(active) {
-                    rateLimitCard(limited, for: active)
-                } else {
-                    activeLine(active)
+                VStack(alignment: .leading, spacing: 8) {
+                    if let limited = Self.rateLimitLine(active) {
+                        rateLimitCard(limited, for: active)
+                    } else {
+                        activeLine(active)
+                    }
+                    if let stale = model.status?.codexAppServerStale {
+                        CodexServerNotice(model: model, stale: stale, activeName: active.name)
+                    }
                 }
             } else if !model.profiles(for: .codex).isEmpty {
                 HStack(spacing: 10) {

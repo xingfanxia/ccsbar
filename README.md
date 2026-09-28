@@ -58,7 +58,9 @@ OpenAI's verdict no longer names one), when it resets, and — new with clauth's
 `codex_reset_credits` — how many **free rate-limit resets** OpenAI has banked
 for that account. Every codex row with one carries a reset badge, and
 right-clicking it offers **Use a usage-limit reset… (N left)**: a confirm
-banner names the account, its banked count and current usage, then ccsbar
+opens inside that account's row, naming its banked count and current usage
+(delete and remove-from-chain confirm the same way, in the row that asked),
+then ccsbar
 spawns `clauth use-reset <name> --yes` and shows clauth's own summary
 (windows reopened, resets left).
 

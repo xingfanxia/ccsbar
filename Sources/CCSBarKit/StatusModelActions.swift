@@ -200,6 +200,12 @@ extension StatusModel {
         }
     }
 
+    /// Restart codex's app-server daemon so running and resumed codex tasks
+    /// pick up the active login; lands when the daemon stops reporting it stale.
+    func restartCodexDaemon() {
+        run({ DaemonClient.codexDaemonRestart() }, expecting: { $0.codexAppServerStale == nil })
+    }
+
     // MARK: - Add a brand-new account ("Add account…" → inline banner → login)
 
     /// Open the inline add-account editor for a harness (a name field + the
@@ -341,11 +347,12 @@ extension StatusModel {
     /// Remove `name` from the chain, but if it's an ARMED member first raise the
     /// inline confirm (a removal that stops auto-switch must be deliberate). Both the
     /// context menu and the disclosure route removals through here.
-    func requestRemove(_ name: String) {
+    func requestRemove(_ name: String, fromChain: Bool = false) {
         guard let s = status, ChainEdit.removalConsequence(of: name, in: s) != nil else {
             fallbackRemove(name)
             return
         }
+        pendingRemovalFromChain = fromChain
         pendingRemoval = name
     }
 

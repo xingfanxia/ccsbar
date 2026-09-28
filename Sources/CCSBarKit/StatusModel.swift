@@ -83,6 +83,9 @@ final class StatusModel: ObservableObject {
     /// an ARMED member requires an explicit "remove anyway?"). `nil` ⇒ no confirm
     /// pending. Copy comes from `ChainEdit.removalConsequence`.
     @Published var pendingRemoval: String?
+    /// The pending removal was asked for from the chain editor, so its confirm
+    /// opens there rather than in the account row.
+    @Published var pendingRemovalFromChain = false
     /// The profile currently being renamed — drives the inline rename banner (a
     /// TextField + confirm). `nil` ⇒ no rename in progress. Set by the context-menu
     /// "Rename…" item, cleared on commit/cancel.

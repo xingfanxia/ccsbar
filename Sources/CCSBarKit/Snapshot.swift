@@ -64,6 +64,17 @@ enum Snapshot {
         return try? JSONDecoder().decode(DaemonStatus.self, from: bumped)
     }
 
+    /// The fixture with codex's app-server daemon reported stale (the notice under
+    /// the codex active line).
+    private static func fixtureWithStaleCodexServer(from data: Data) -> DaemonStatus? {
+        guard var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        dict["codex_app_server_stale"] = ["started_at": "2026-09-26T11:43:00+00:00"]
+        guard let bumped = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+        return try? JSONDecoder().decode(DaemonStatus.self, from: bumped)
+    }
+
     /// Re-serialize the fixture with every "…fable…" window dropped from each profile —
     /// simulates the Fable trial ending (the daemon stops reporting the window), to
     /// verify the row + detail card collapse gracefully to 7d only.
@@ -295,6 +306,9 @@ enum Snapshot {
             // The use-a-reset confirm armed on the first codex row with a banked
             // reset, and the notice a used one leaves behind.
             case "reset-confirm", "reset-used": return (mock, .ok, nil, .idle, .codex)
+            case "delete-confirm": return (mock, .ok, nil, .idle, .claude)
+            case "codex-stale-server":
+                return (fixtureWithStaleCodexServer(from: data) ?? mock, .ok, nil, .idle, .codex)
             // default / healthy: inspected=nil resolves to the ACTIVE account (the real
             // first-open path — StatusModel.inspected falls back to active), so this
             // renders the one card that carries the "pick another account above to
@@ -313,12 +327,13 @@ enum Snapshot {
             preview: status, liveness: liveness, inspected: inspected, phase: phase,
             tokens: tokens, tab: tab)
         if variant == "config" || variant == "codex-config" { model.showConfig = true }
-        // Panel-level armed-member removal confirm (§7): arm it on the first armed
-        // chain member so the banner renders.
+        // Armed-member removal confirm (§7), asked for from the row menu: it
+        // opens inside the first armed chain member's account row.
         if variant == "remove-confirm" {
             model.pendingRemoval = mock.profiles.first { $0.fallback?.armed == true }?.name
         }
         if variant == "rename" { model.renaming = nonActive }
+        if variant == "delete-confirm" { model.pendingDelete = nonActive }
         // The codex add-account editor open on the Codex page (TABS-1) — pins the
         // two-row layout (field, then Cancel / Capture / Sign in) that keeps the
         // primary verb un-truncated at 420pt.

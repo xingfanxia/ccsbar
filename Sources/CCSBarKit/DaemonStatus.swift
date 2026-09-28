@@ -80,6 +80,11 @@ struct DaemonStatus: Codable, Sendable {
     /// NEVER in `fallbackChain`; they live here only. Consumed by the Codex tab's
     /// chain rail + config editor (TABS-1).
     let codexFallbackChain: [String]
+    /// Codex's shared app-server daemon (codex 0.157+) started before the
+    /// operator's codex login last moved, so every task in it, a resumed one
+    /// included, still spends the login it read at start. `nil` when there is
+    /// no such daemon, and on daemons that predate the key.
+    let codexAppServerStale: CodexAppServerStale?
 
     enum CodingKeys: String, CodingKey {
         case schema
@@ -99,6 +104,7 @@ struct DaemonStatus: Codable, Sendable {
         case codexWeeklySwitchThreshold = "codex_weekly_switch_threshold"
         case activeCodexProfile = "active_codex_profile"
         case codexFallbackChain = "codex_fallback_chain"
+        case codexAppServerStale = "codex_app_server_stale"
     }
 
     /// Decode additively — every field the daemon added after schema 1 is
@@ -123,7 +129,15 @@ struct DaemonStatus: Codable, Sendable {
             Double.self, forKey: .codexWeeklySwitchThreshold)
         activeCodexProfile = try c.decodeIfPresent(String.self, forKey: .activeCodexProfile)
         codexFallbackChain = try c.decodeIfPresent([String].self, forKey: .codexFallbackChain) ?? []
+        codexAppServerStale = try c.decodeIfPresent(
+            CodexAppServerStale.self, forKey: .codexAppServerStale)
     }
+}
+
+/// clauth `codex_app_server_stale`: when the stale codex daemon started.
+struct CodexAppServerStale: Codable, Sendable, Equatable {
+    let startedAt: String
+    enum CodingKeys: String, CodingKey { case startedAt = "started_at" }
 }
 
 /// Which agent harness a profile switches (TABS-1) — the Swift mirror of clauth's

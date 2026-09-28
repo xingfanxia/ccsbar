@@ -171,6 +171,14 @@ enum DaemonClient {
         return sendCommand(cmd)
     }
 
+    /// Restart codex's shared app-server daemon so it loads the active codex
+    /// login (clauth runs `codex app-server daemon restart` off-thread; the
+    /// reply is "accepted", and `codex_app_server_stale` clearing is the landing).
+    @discardableResult
+    static func codexDaemonRestart() -> CommandOutcome {
+        sendCommand(["cmd": "codex_daemon_restart"])
+    }
+
     // MARK: - Fallback configuration (socket only — needs a running daemon)
 
     /// Append a profile to the fallback chain.

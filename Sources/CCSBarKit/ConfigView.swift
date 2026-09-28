@@ -33,16 +33,25 @@ struct ConfigView: View {
                         .font(Theme.sub).foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 5) {
-                    // The armed-member removal confirm is rendered at the PANEL level
-                    // (PanelView.removalConfirmBanner) so it's visible whether the
-                    // remove came from this disclosure or the row context menu — the
-                    // disclosure is collapsed by default.
+                    // An armed-member removal asked for HERE confirms under its row
+                    // (`pendingRemovalFromChain`); one asked for from the account's
+                    // context menu confirms in that account row instead.
                     //
                     // Rows follow CHAIN order (unlike the main ACCOUNTS list, which is
                     // fixed file order): this is the chain editor, so Move up/down must
                     // visibly reorder the rows. The order animates on `fallbackChain`.
                     ForEach(orderedConfigProfiles) { p in
                         row(for: p)
+                        if model.pendingRemovalFromChain, model.pendingRemoval == p.name,
+                           let prompt = model.pendingRemovalPrompt
+                        {
+                            InlineConfirm(
+                                message: prompt, action: "Remove", tint: Theme.warning,
+                                onCancel: { model.cancelRemoval() },
+                                onConfirm: { model.confirmRemoval() }
+                            )
+                            .padding(.bottom, 4)
+                        }
                     }
                     legends
                     if harness == .claude {
@@ -117,7 +126,7 @@ struct ConfigView: View {
                 moveButton(p, up: true, disabled: fb.position <= 1)
                 moveButton(p, up: false, disabled: fb.position >= chain.count)
                 glyphButton("minus.circle", tint: Theme.danger, help: "Remove from chain") {
-                    model.requestRemove(p.name)
+                    model.requestRemove(p.name, fromChain: true)
                 }
             } else {
                 Spacer()
