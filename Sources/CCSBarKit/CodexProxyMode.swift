@@ -27,7 +27,7 @@ enum CodexProxyMode {
     static let proxyPort: UInt16 = 4517
 
     /// The provider-definition block appended when absent (mirrors
-    /// `clauth proxy --print-config`, minus the top-level routing line).
+    /// `clauth codex-proxy --print-config`, minus the top-level routing line).
     static let providerBlock = """
     [model_providers.clauth]
     name = "openai"

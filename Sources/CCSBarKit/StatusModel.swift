@@ -101,7 +101,7 @@ final class StatusModel: ObservableObject {
     /// banked usage-limit reset can't be undone, so the menu item only arms
     /// this; the banner's "Use reset" is the deliberate step. `nil` ⇒ none.
     @Published var pendingReset: String?
-    /// The profile whose `clauth use-reset` spawn is currently running, or nil.
+    /// The profile whose `clauth limit-reset` spawn is currently running, or nil.
     /// Single-flight, like `deleteInFlight`.
     @Published var resetInFlight: String?
     /// Count of config socket round-trips in flight (CBAR4-5 §7 pending shimmer) —
@@ -149,7 +149,7 @@ final class StatusModel: ObservableObject {
     /// 0.15.1 deploy until this was bumped, because the constant had sat at
     /// 0.11.0 through four upstream releases. Bump it in the same commit that
     /// regenerates the contract fixture, and nowhere else.
-    static let expectedClauthVersion = "0.15.1"
+    static let expectedClauthVersion = "0.16.0"
 
     private var timer: Timer?
     private var lastMtime: Date?

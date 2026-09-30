@@ -686,10 +686,10 @@ enum DaemonClient {
     /// refuses a non-TTY run without it, before any network call) — the
     /// panel's armed banner is the deliberate step. Pure and unit-tested.
     static func useResetArgs(_ name: String) -> [String] {
-        ["use-reset", name, "--yes"]
+        ["limit-reset", name, "--yes"]
     }
 
-    /// How a `clauth use-reset` spawn resolved. Its own type rather than
+    /// How a `clauth limit-reset` spawn resolved. Its own type rather than
     /// `CommandOutcome` because success carries clauth's summary line — the
     /// only place the user learns how many windows reopened and how many
     /// resets remain before the daemon's next poll.
@@ -704,7 +704,7 @@ enum DaemonClient {
         case unreachable
     }
 
-    /// Classify a finished `clauth use-reset` run. Exit 0 → `.used` with the
+    /// Classify a finished `clauth limit-reset` run. Exit 0 → `.used` with the
     /// summary; a signal death (the watchdog, or anything else) → the one
     /// outcome clauth never got to report, so it says the reset MAY have gone
     /// through and names `--list` as the check before a retry; any other exit →
@@ -713,8 +713,8 @@ enum DaemonClient {
         name: String, status: Int32, signaled: Bool, stdout: String, stderr: String
     ) -> UseResetOutcome {
         if signaled {
-            return .failed("clauth use-reset was stopped before it finished — the reset may or may not"
-                + " have gone through. Check `clauth use-reset \(name) --list` before trying again.")
+            return .failed("clauth limit-reset was stopped before it finished — the reset may or may not"
+                + " have gone through. Check `clauth limit-reset \(name) --list` before trying again.")
         }
         if status == 0 { return .used(summary: useResetSummary(stdout: stdout)) }
         return .failed(useResetFailureReason(stderr: stderr, exitStatus: status))
@@ -733,14 +733,14 @@ enum DaemonClient {
         return sentenceCased(line.hasPrefix(prefix) ? String(line.dropFirst(prefix.count)) : line)
     }
 
-    /// The error copy for a failed `clauth use-reset`: its stderr flattened
+    /// The error copy for a failed `clauth limit-reset`: its stderr flattened
     /// the way `deleteFailureReason` does it (a refusal plus its hint stay
     /// together), minus Rust's leading `Error: ` — the banner already says it
     /// is an error. Empty stderr falls back to the exit status. Pure and
     /// unit-tested.
     static func useResetFailureReason(stderr: String, exitStatus: Int32) -> String {
         let flattened = flattenedLines(stderr)
-        guard !flattened.isEmpty else { return "clauth use-reset exited \(exitStatus)" }
+        guard !flattened.isEmpty else { return "clauth limit-reset exited \(exitStatus)" }
         let prefix = "Error: "
         return sentenceCased(flattened.hasPrefix(prefix) ? String(flattened.dropFirst(prefix.count)) : flattened)
     }
@@ -751,12 +751,12 @@ enum DaemonClient {
         text.prefix(1).uppercased() + text.dropFirst()
     }
 
-    /// Past this a `clauth use-reset` spawn is presumed wedged. clauth bounds
+    /// Past this a `clauth limit-reset` spawn is presumed wedged. clauth bounds
     /// each of its two requests (list, then consume) at ~15s, so a healthy run
     /// finishes well inside it.
     private static let useResetTimeout: Duration = .seconds(60)
 
-    /// Run `clauth use-reset <name> --yes`: clauth lists the account's banked
+    /// Run `clauth limit-reset <name> --yes`: clauth lists the account's banked
     /// resets, picks the one expiring soonest, and consumes it. CLI-only, like
     /// delete — the daemon socket carries no verb for it — and it works with
     /// the daemon up or down. Never retried from here: a retry after an
@@ -775,7 +775,7 @@ enum DaemonClient {
         }
     }
 
-    // MARK: - Captured spawn (shared by delete and use-reset)
+    // MARK: - Captured spawn (shared by delete and limit-reset)
 
     /// One `clauth` spawn whose output we read: it never started, or it exited
     /// — normally or by a signal, the watchdog's included — with both streams

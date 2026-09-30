@@ -61,7 +61,7 @@ right-clicking it offers **Use a usage-limit reset… (N left)**: a confirm
 opens inside that account's row, naming its banked count and current usage
 (delete and remove-from-chain confirm the same way, in the row that asked),
 then ccsbar
-spawns `clauth use-reset <name> --yes` and shows clauth's own summary
+spawns `clauth limit-reset <name> --yes` and shows clauth's own summary
 (windows reopened, resets left).
 
 | | Overview | Codex | Codex, rate-limited |
@@ -268,7 +268,7 @@ Implemented (the CBAR-4 "Preflight" redesign):
 - **Use a codex usage-limit reset** — on a codex row with a banked reset, the
   context-menu **"Use a usage-limit reset… (N left)"** arms a confirm banner (whose
   reset, how many are left, current 5h/weekly usage, and that a used reset can't be
-  returned), then spawns `clauth use-reset <name> --yes` — CLI-only, so it works with
+  returned), then spawns `clauth limit-reset <name> --yes` — CLI-only, so it works with
   the daemon down. Success shows clauth's summary and re-polls the account; a refusal
   ("nothing to reset right now", "no longer available") lands in the error banner.
 - **Inactive plans collapse** — accounts on a cancelled subscription (tier

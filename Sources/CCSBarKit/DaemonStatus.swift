@@ -268,7 +268,7 @@ struct ProfileStatus: Codable, Sendable, Identifiable {
     /// same usage body the verdict rides). `nil` for claude profiles, older
     /// daemons, and until the daemon's first poll has carried a count — nil
     /// says nothing, and is never rendered as "0 banked". Spent through
-    /// `clauth use-reset <name>` — the row menu's "Use a usage-limit reset…"
+    /// `clauth limit-reset <name>` — the row menu's "Use a usage-limit reset…"
     /// spawns it — or the Codex app's "Reset usage"; the daemon only reads it.
     let codexResetCredits: Int?
     /// Codex-only: when the paid plan period ends (RFC-3339), from the login's

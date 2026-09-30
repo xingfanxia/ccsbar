@@ -140,7 +140,7 @@ extension StatusModel {
     /// banners: a successful socket reply still settles status.json, but it
     /// never clears an error already on screen, and a failed one raises none.
     /// For re-polling after an outcome the user must keep reading (an
-    /// unconfirmed use-reset). `work` is injected for tests.
+    /// unconfirmed limit-reset). `work` is injected for tests.
     func refreshQuietly(_ name: String, work: (@Sendable () -> CommandOutcome)? = nil) {
         let work = work ?? { DaemonClient.refresh(name) }
         Task { [weak self] in

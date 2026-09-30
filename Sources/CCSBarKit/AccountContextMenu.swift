@@ -43,7 +43,7 @@ struct AccountContextMenu: View {
         Button("Refresh \(p.name)") { model.refresh(p.name) }
             .disabled(!model.daemonReachable)
 
-        // Spend a banked codex usage-limit reset (`clauth use-reset`). Only on a
+        // Spend a banked codex usage-limit reset (`clauth limit-reset`). Only on a
         // codex row with a count above zero — the same rule as the row's reset
         // chip. The item only ARMS the confirm banner; nothing is spent from
         // the menu. CLI-only, so it works with the daemon down.

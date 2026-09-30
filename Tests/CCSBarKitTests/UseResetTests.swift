@@ -33,10 +33,10 @@ final class UseResetTests: XCTestCase {
         StatusModel(preview: try status(credits: credits), liveness: .down)
     }
 
-    // MARK: - argv (the contract with `clauth use-reset`)
+    // MARK: - argv (the contract with `clauth limit-reset`)
 
     func testUseResetArgsAlwaysPassYes() {
-        XCTAssertEqual(DaemonClient.useResetArgs("cx"), ["use-reset", "cx", "--yes"],
+        XCTAssertEqual(DaemonClient.useResetArgs("cx"), ["limit-reset", "cx", "--yes"],
                        "a non-TTY spawn without --yes is refused by clauth before any network call")
     }
 
@@ -143,11 +143,11 @@ final class UseResetTests: XCTestCase {
             "Nothing to reset on 'cx' right now; no reset was used")
         XCTAssertEqual(
             DaemonClient.useResetFailureReason(
-                stderr: "Error: that reset is no longer available\nsee: clauth use-reset cx --list\n",
+                stderr: "Error: that reset is no longer available\nsee: clauth limit-reset cx --list\n",
                 exitStatus: 1),
-            "That reset is no longer available — see: clauth use-reset cx --list")
+            "That reset is no longer available — see: clauth limit-reset cx --list")
         XCTAssertEqual(DaemonClient.useResetFailureReason(stderr: "\n", exitStatus: 2),
-                       "clauth use-reset exited 2")
+                       "clauth limit-reset exited 2")
     }
 
     func testOutcomeClassification() {
@@ -166,7 +166,7 @@ final class UseResetTests: XCTestCase {
             name: "cx", status: 15, signaled: true, stdout: "", stderr: "")
         else { return XCTFail("a killed spawn is a failure") }
         XCTAssertTrue(killed.contains("may or may not"))
-        XCTAssertTrue(killed.contains("clauth use-reset cx --list"))
+        XCTAssertTrue(killed.contains("clauth limit-reset cx --list"))
     }
 
     // MARK: - Outcome routing (injected runner — no spawn)
@@ -245,12 +245,12 @@ final class UseResetTests: XCTestCase {
         await settle(model)
         XCTAssertEqual(repolls, 0, "nothing ran, so there is nothing to re-poll")
         XCTAssertEqual(model.lastCommandError,
-                       "Couldn't find the clauth binary. Run `clauth use-reset cx` in a terminal.")
+                       "Couldn't find the clauth binary. Run `clauth limit-reset cx` in a terminal.")
     }
 
     @MainActor
     func testConfirmWaitsWhileALoginIsInFlight() throws {
-        // A login rewrites the very profile use-reset reads. The armed state
+        // A login rewrites the very profile limit-reset reads. The armed state
         // stays armed so the user can confirm once the login settles.
         let model = try model()
         model.reauth("cx", codex: true, mode: .capture, run: { _ in
@@ -303,7 +303,7 @@ final class UseResetTests: XCTestCase {
         XCTAssertNil(model.resetInFlight, "cancel never spawns anything")
     }
 
-    // MARK: - Captured spawn (shared by delete and use-reset) — `/bin/sh`, never clauth
+    // MARK: - Captured spawn (shared by delete and limit-reset) — `/bin/sh`, never clauth
 
     func testCaptureReadsBothStreamsAndTheExitStatus() async {
         let result = await DaemonClient.runCapturing(

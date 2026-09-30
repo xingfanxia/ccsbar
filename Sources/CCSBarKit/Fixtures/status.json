@@ -232,7 +232,7 @@
             "codex_reset_credits": 1
         }
     ],
-    "clauth_version": "0.15.1",
+    "clauth_version": "0.16.0",
     "burn_aware": false,
     "forecast": {
         "action": "switch",

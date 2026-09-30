@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The codex use-a-reset half of `StatusModel`: a codex account's banked
 /// usage-limit reset, spent from the row's context menu through an armed
-/// confirm and `clauth use-reset <name> --yes`. Stored properties stay in the
+/// confirm and `clauth limit-reset <name> --yes`. Stored properties stay in the
 /// class declaration; this file is same-type extensions only.
 extension StatusModel {
     // MARK: - Visibility + gating (pure)
@@ -25,7 +25,7 @@ extension StatusModel {
 
     /// A reset may not start while another reset, a delete, or a login spawn
     /// is in flight: a delete or a login rewrites the very profile whose stored
-    /// login `clauth use-reset` reads. One gate for the menu item AND the
+    /// login `clauth limit-reset` reads. One gate for the menu item AND the
     /// banner's button, so neither is an enabled control that silently no-ops.
     var useResetBlocked: Bool {
         resetInFlight != nil || deleteInFlight != nil || loginInFlight != nil
@@ -33,7 +33,7 @@ extension StatusModel {
 
     // MARK: - Armed confirm
 
-    /// Arm the use-reset confirm for `name`. ALWAYS confirms — a used reset
+    /// Arm the limit-reset confirm for `name`. ALWAYS confirms — a used reset
     /// can't be returned — and never spends from the menu directly.
     func requestReset(_ name: String) { pendingReset = name }
     func cancelReset() { pendingReset = nil }
@@ -65,7 +65,7 @@ extension StatusModel {
             fiveHourPct: p.fiveHour?.utilizationPct, weeklyPct: p.sevenDay?.utilizationPct)
     }
 
-    /// The use-reset confirm copy: whose reset, how many are banked, what it
+    /// The limit-reset confirm copy: whose reset, how many are banked, what it
     /// does (reopens both windows NOW — so it is worth the most when they're
     /// nearly spent, hence the current figures), and that it is final. The
     /// figures say "used" in words, so they read the same whichever axis the
@@ -90,7 +90,7 @@ extension StatusModel {
 
     // MARK: - Spend
 
-    /// Commit the armed reset: spawn `clauth use-reset <name> --yes`. CLI-only
+    /// Commit the armed reset: spawn `clauth limit-reset <name> --yes`. CLI-only
     /// (no socket verb), so it works with the daemon down. On success the
     /// neutral notice carries clauth's own summary and — when the daemon is
     /// reachable — a forced re-poll of that account, so its bars and count
@@ -140,7 +140,7 @@ extension StatusModel {
                 self.showError(message)
                 repoll(name, true)
             case .unreachable:
-                self.showError("Couldn't find the clauth binary. Run `clauth use-reset \(name)` in a terminal.")
+                self.showError("Couldn't find the clauth binary. Run `clauth limit-reset \(name)` in a terminal.")
             }
         }
     }
