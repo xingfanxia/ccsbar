@@ -230,7 +230,7 @@ enum AddAccountValidation {
     static let reservedNames: Set<String> = [
         "daemon", "status", "doctor", "which", "start", "login", "delete",
         "fallback", "proxy", "resume", "run", "mcp", "__complete", "mcp-await-job",
-        "switch", "limit-reset", "migrate-codex", "codex-proxy", "devices",
+        "switch", "limit-reset", "migrate-codex", "codex-proxy", "devices", "presets",
     ]
 
     /// The exact reason `name` is unusable, or nil when it's valid.
